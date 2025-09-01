@@ -6,16 +6,29 @@ import { UserRole } from './models';
 export const routes: Routes = [
   {
     path: '',
-    redirectTo: '/login',
+    redirectTo: '/home',
     pathMatch: 'full'
+  },
+  {
+    path: 'home',
+    loadComponent: () => import('./components/home/home.component').then(m => m.HomeComponent)
   },
   {
     path: 'login',
     loadComponent: () => import('./components/auth/login.component').then(m => m.LoginComponent)
   },
   {
+    path: 'register',
+    loadComponent: () => import('./components/auth/register.component').then(m => m.RegisterComponent)
+  },
+  {
     path: 'dashboard',
-    loadComponent: () => import('./components/layout/dashboard.component').then(m => m.DashboardComponent),
+    loadComponent: () => import('./components/dashboard/dashboard.component').then(m => m.DashboardComponent),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'profile',
+    loadComponent: () => import('./components/profile/profile.component').then(m => m.ProfileComponent),
     canActivate: [AuthGuard]
   },
   {
@@ -24,48 +37,74 @@ export const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
-    path: 'groups',
-    loadComponent: () => import('./components/chat/groups.component').then(m => m.GroupsComponent),
+    path: 'channels',
+    loadComponent: () => import('./components/channels/channels.component').then(m => m.ChannelsComponent),
     canActivate: [AuthGuard]
   },
   {
-    path: 'channels',
-    loadComponent: () => import('./components/chat/channels.component').then(m => m.ChannelsComponent),
+    path: 'groups',
+    loadComponent: () => import('./components/groups/group-interest.component').then(m => m.GroupInterestComponent),
     canActivate: [AuthGuard]
+  },
+  {
+    path: 'groups/:groupId',
+    loadComponent: () => import('./components/groups/client-group-detail.component').then(m => m.ClientGroupDetailComponent),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'group/:groupId/channel/:channelId',
+    loadComponent: () => import('./components/chat/chat.component').then(m => m.ChatComponent),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'groups/interest',
+    loadComponent: () => import('./components/groups/group-interest.component').then(m => m.GroupInterestComponent),
+    canActivate: [AuthGuard],
+    data: { roles: [UserRole.USER] }
   },
   {
     path: 'admin',
     canActivate: [AuthGuard, RoleGuard],
-    data: { roles: [UserRole.SUPER_ADMIN, UserRole.GROUP_ADMIN] },
+    data: { roles: [UserRole.GROUP_ADMIN, UserRole.SUPER_ADMIN] },
     children: [
       {
+        path: '',
+        loadComponent: () => import('./components/admin/admin-dashboard.component').then(m => m.AdminDashboardComponent)
+      },
+      {
         path: 'users',
-        loadComponent: () => import('./components/admin/users.component').then(m => m.UsersComponent),
+        loadComponent: () => import('./components/admin/manage-users.component').then(m => m.ManageUsersComponent),
         canActivate: [RoleGuard],
-        data: { roles: [UserRole.SUPER_ADMIN] }
+        data: { roles: [UserRole.GROUP_ADMIN, UserRole.SUPER_ADMIN] }
       },
       {
         path: 'groups',
-        loadComponent: () => import('./components/admin/groups.component').then(m => m.AdminGroupsComponent),
+        loadComponent: () => import('./components/admin/manage-groups.component').then(m => m.ManageGroupsComponent),
         canActivate: [RoleGuard],
-        data: { roles: [UserRole.SUPER_ADMIN] }
+        data: { roles: [UserRole.GROUP_ADMIN, UserRole.SUPER_ADMIN] }
       },
       {
-        path: 'my-groups',
-        loadComponent: () => import('./components/admin/my-groups.component').then(m => m.AdminMyGroupsComponent),
+        path: 'groups/:groupId',
+        loadComponent: () => import('./components/admin/group-detail.component').then(m => m.AdminGroupDetailComponent),
         canActivate: [RoleGuard],
-        data: { roles: [UserRole.SUPER_ADMIN, UserRole.GROUP_ADMIN] }
+        data: { roles: [UserRole.GROUP_ADMIN, UserRole.SUPER_ADMIN] }
       },
       {
-        path: 'create-group',
-        loadComponent: () => import('./components/admin/create-group.component').then(m => m.AdminCreateGroupComponent),
+        path: 'channels',
+        loadComponent: () => import('./components/admin/manage-channels.component').then(m => m.ManageChannelsComponent),
         canActivate: [RoleGuard],
-        data: { roles: [UserRole.SUPER_ADMIN, UserRole.GROUP_ADMIN] }
+        data: { roles: [UserRole.GROUP_ADMIN, UserRole.SUPER_ADMIN] }
+      },
+      {
+        path: 'groups/:groupId/channels',
+        loadComponent: () => import('./components/admin/manage-channels.component').then(m => m.ManageChannelsComponent),
+        canActivate: [RoleGuard],
+        data: { roles: [UserRole.GROUP_ADMIN, UserRole.SUPER_ADMIN] }
       }
     ]
   },
   {
     path: '**',
-    redirectTo: '/login'
+    redirectTo: '/home'
   }
 ];

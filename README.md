@@ -1,16 +1,16 @@
 # Chat System Frontend
 
-## 📋 Tổng Quan Dự Án
+## 📋 Project Overview
 
-Hệ thống chat text/video sử dụng MEAN stack với giao diện hiện đại và responsive. Dự án được chia thành 2 phases:
+A text/video chat system using MEAN stack with modern and responsive interface. The project is divided into 2 phases:
 
-- **Phase 1**: Frontend development với mock data, authentication, role management, UI/UX
+- **Phase 1**: Frontend development with mock data, authentication, role management, UI/UX
 - **Phase 2**: Backend integration, real-time features (Socket.io, Peer.js), MongoDB
 
-## 🚀 Công Nghệ Sử Dụng
+## 🚀 Technologies Used
 
 ### Frontend Framework
-- **Angular 18** - Modern web framework với standalone components
+- **Angular 18** - Modern web framework with standalone components
 - **TypeScript** - Type-safe JavaScript development
 - **SCSS** - Advanced CSS preprocessing
 - **Angular Material** - UI component library
@@ -19,15 +19,15 @@ Hệ thống chat text/video sử dụng MEAN stack với giao diện hiện đ�
 - **Angular CLI** - Development and build tools
 - **Zone.js** - Change detection and async operations
 - **RxJS** - Reactive programming library
-- **Angular Router** - Client-side routing với lazy loading
+- **Angular Router** - Client-side routing with lazy loading
 
 ### Styling & UI/UX
 - **CSS Grid & Flexbox** - Modern layout systems
 - **CSS Variables** - Dynamic theming
 - **Responsive Design** - Mobile-first approach
-- **CSS Animations** - Smooth transitions và hover effects
+- **CSS Animations** - Smooth transitions and hover effects
 
-## 🏗️ Cấu Trúc Dự Án
+## 🏗️ Project Structure
 
 ```
 src/
@@ -68,48 +68,48 @@ src/
 └── styles.scss                              # Global styles
 ```
 
-## 📱 Các Trang Có Thể Truy Cập
+## 📱 Accessible Pages
 
 ### 🔐 Authentication
-- **`/login`** - Đăng nhập hệ thống
+- **`/login`** - System login
   - Form validation
   - Mock authentication
   - Remember me functionality
 
 ### 🏠 Client Pages (Client Layout)
-- **`/chat`** - Giao diện chat chính
+- **`/chat`** - Main chat interface
   - Real-time messaging interface
   - Online members sidebar
   - Message history
   - Quick actions (mute, pin, invite)
 
-- **`/groups`** - Quản lý groups
+- **`/groups`** - Groups management
   - My groups display
   - Available groups
   - Join/leave functionality
-  - Search và filter
+  - Search and filter
 
-- **`/channels`** - Quản lý channels
+- **`/channels`** - Channels management
   - My channels
   - Available channels
   - Group filtering
   - Channel search
 
 ### 👑 Admin Pages (Admin Layout)
-- **`/dashboard`** - Dashboard chính
+- **`/dashboard`** - Main dashboard
   - Welcome section
   - Quick stats (groups, channels, messages, users)
   - Quick actions
   - Recent activity feed
 
-- **`/admin/users`** - Quản lý users
-  - User table với search/filter
+- **`/admin/users`** - User management
+  - User table with search/filter
   - Role management
   - User actions (edit, delete, view)
   - Bulk operations
   - Pagination
 
-- **`/admin/groups`** - Quản lý groups (Super Admin)
+- **`/admin/groups`** - Groups management (Super Admin)
   - Groups table
   - Admin filtering
   - Status management
@@ -122,26 +122,26 @@ src/
   - Group statistics
   - Management actions
 
-- **`/admin/create-group`** - Tạo group mới
+- **`/admin/create-group`** - Create new group
   - Group information form
   - Default channels setup
   - Member invitations
   - Permission settings
   - Advanced options
 
-## 🎨 Giao Diện & UX
+## 🎨 Interface & UX
 
 ### Layout Components
 - **AdminLayoutComponent**: Header + Sidebar + Content area
-  - Gradient header với user info
+  - Gradient header with user info
   - Responsive sidebar navigation
-  - Page title và description
+  - Page title and description
   - Action buttons slot
 
 - **ClientLayoutComponent**: Header + Content area
-  - Sticky header với navigation
-  - Logo và main menu
-  - Page header với actions
+  - Sticky header with navigation
+  - Logo and main menu
+  - Page header with actions
   - Responsive design
 
 ### Design System
@@ -159,18 +159,18 @@ src/
   - Labels: #95a5a6 (Light Gray)
 
 - **Components**:
-  - Cards với shadow và border radius
-  - Buttons với hover effects
-  - Form inputs với focus states
-  - Tables với hover rows
+  - Cards with shadow and border radius
+  - Buttons with hover effects
+  - Form inputs with focus states
+  - Tables with hover rows
   - Responsive grids
 
 ### Responsive Features
 - **Mobile-first approach**
 - **Breakpoints**: 768px, 1024px, 1200px
-- **Flexible layouts** với CSS Grid
+- **Flexible layouts** with CSS Grid
 - **Touch-friendly** interactions
-- **Optimized** cho mobile devices
+- **Optimized** for mobile devices
 
 ## 🔒 Authentication & Authorization
 
@@ -180,8 +180,8 @@ src/
 - **User**: Basic chat functionality
 
 ### Route Guards
-- **AuthGuard**: Bảo vệ routes yêu cầu đăng nhập
-- **RoleGuard**: Kiểm tra quyền truy cập theo role
+- **AuthGuard**: Protects routes requiring login
+- **RoleGuard**: Checks access permissions by role
 
 ### Mock Data
 - **Default User**: super / 123
@@ -259,14 +259,14 @@ npm install
 ### Development Server
 ```bash
 ng serve
-# hoặc
+# or
 npm start
 ```
 
 ### Build Production
 ```bash
 ng build
-# hoặc
+# or
 npm run build
 ```
 
@@ -278,20 +278,20 @@ ng build --stats-json
 ## 📁 File Structure Details
 
 ### Components Organization
-- **Standalone Components**: Mỗi component là independent
-- **Lazy Loading**: Components được load khi cần
-- **Shared Layouts**: Admin và Client layouts riêng biệt
+- **Standalone Components**: Each component is independent
+- **Lazy Loading**: Components are loaded when needed
+- **Shared Layouts**: Separate Admin and Client layouts
 - **Responsive Design**: Mobile-first approach
 
 ### Services & State Management
-- **AuthService**: Quản lý authentication state
+- **AuthService**: Manages authentication state
 - **BehaviorSubject**: Reactive state updates
 - **LocalStorage**: Session persistence
 - **Route Guards**: Navigation protection
 
 ### Styling Strategy
-- **Component-scoped Styles**: Mỗi component có styles riêng
-- **Global Styles**: Common utilities và variables
+- **Component-scoped Styles**: Each component has its own styles
+- **Global Styles**: Common utilities and variables
 - **CSS Custom Properties**: Dynamic theming
 - **Responsive Mixins**: Mobile-first breakpoints
 
@@ -301,7 +301,7 @@ ng build --stats-json
 - **Express.js Server**: RESTful API endpoints
 - **MongoDB**: Database integration
 - **JWT Authentication**: Token-based auth
-- **File Upload**: Image và video support
+- **File Upload**: Image and video support
 
 ### Real-time Features
 - **Socket.io**: Real-time messaging
@@ -334,13 +334,13 @@ ng build --stats-json
 - **Bundle Size**: 567.83 kB (Initial)
 - **Lazy Chunks**: 11 components
 - **Build Time**: ~5-9 seconds
-- **Memory Usage**: Optimized với standalone components
+- **Memory Usage**: Optimized with standalone components
 
 ## 🔧 Configuration Files
 
 - **angular.json**: Build configuration
 - **tsconfig.json**: TypeScript settings
-- **package.json**: Dependencies và scripts
+- **package.json**: Dependencies and scripts
 - **polyfills.ts**: Browser compatibility
 
 ## 📚 Dependencies
@@ -364,8 +364,8 @@ ng build --stats-json
 2. **Database Integration**: MongoDB connection
 3. **Real-time Features**: Socket.io implementation
 4. **Video Chat**: Peer.js integration
-5. **Testing**: Unit và integration tests
-6. **Deployment**: Production build và hosting
+5. **Testing**: Unit and integration tests
+6. **Deployment**: Production build and hosting
 
 ---
 

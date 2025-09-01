@@ -1,192 +1,371 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { FormsModule, ReactiveFormsModule, FormBuilder, Validators, FormGroup } from '@angular/forms';
+import { Router, ActivatedRoute, RouterLink } from '@angular/router';
+import { MatCardModule } from '@angular/material/card';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatGridListModule } from '@angular/material/grid-list';
 import { AuthService } from '../../services/auth.service';
-import { UserCredentials } from '../../models';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ReactiveFormsModule,
+    RouterLink,
+    MatCardModule,
+    MatButtonModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatGridListModule
+  ],
   template: `
     <div class="login-container">
-      <div class="login-card">
-        <h2>Login to Chat System</h2>
-        <form (ngSubmit)="onLogin()" #loginForm="ngForm">
-          <div class="form-group">
-            <label for="username">Username:</label>
-            <input 
-              type="text" 
-              id="username" 
-              name="username" 
-              [(ngModel)]="credentials.username" 
-              required 
-              class="form-control"
-              placeholder="Enter username">
+      <mat-card class="login-card">
+        <mat-card-header>
+          <mat-card-title>Welcome Back</mat-card-title>
+          <mat-card-subtitle>Sign in to your account</mat-card-subtitle>
+        </mat-card-header>
+
+        <mat-card-content>
+          <div *ngIf="successMessage" class="success-message">
+            <mat-icon color="primary">check_circle</mat-icon>
+            {{ successMessage }}
           </div>
-          
-          <div class="form-group">
-            <label for="password">Password:</label>
-            <input 
-              type="password" 
-              id="password" 
-              name="password" 
-              [(ngModel)]="credentials.password" 
-              required 
-              class="form-control"
-              placeholder="Enter password">
+
+          <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Username</mat-label>
+              <input matInput formControlName="username" placeholder="Enter your username">
+              <mat-icon matSuffix>person</mat-icon>
+              <mat-error *ngIf="loginForm.get('username')?.hasError('required')">
+                Username is required
+              </mat-error>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Password</mat-label>
+              <input matInput type="password" formControlName="password" placeholder="Enter your password">
+              <mat-icon matSuffix>lock</mat-icon>
+              <mat-error *ngIf="loginForm.get('password')?.hasError('required')">
+                Password is required
+              </mat-error>
+            </mat-form-field>
+
+            <div *ngIf="errorMessage" class="error-message">
+              <mat-icon color="warn">error</mat-icon>
+              {{ errorMessage }}
+            </div>
+
+            <button mat-raised-button color="primary" type="submit" class="btn-login"
+              [disabled]="loginForm.invalid || isSubmitting">
+              <mat-icon>login</mat-icon>
+              {{ isSubmitting ? 'Signing In...' : 'Sign In' }}
+            </button>
+          </form>
+
+          <div class="demo-accounts">
+            <h3>Demo Accounts</h3>
+            <mat-grid-list cols="3" rowHeight="100px" gutterSize="16px">
+              <mat-grid-tile>
+                <div class="demo-account" (click)="useDemoAccount('super', '123')">
+                  <span class="demo-role">Super Admin</span>
+                  <span class="demo-credentials">super / 123</span>
+                </div>
+              </mat-grid-tile>
+              <mat-grid-tile>
+                <div class="demo-account" (click)="useDemoAccount('admin', '123')">
+                  <span class="demo-role">Group Admin</span>
+                  <span class="demo-credentials">admin / 123</span>
+                </div>
+              </mat-grid-tile>
+              <mat-grid-tile>
+                <div class="demo-account" (click)="useDemoAccount('user', '123')">
+                  <span class="demo-role">User</span>
+                  <span class="demo-credentials">user / 123</span>
+                </div>
+              </mat-grid-tile>
+            </mat-grid-list>
           </div>
-          
-          <button type="submit" [disabled]="!loginForm.valid || isLoading" class="btn-login">
-            {{ isLoading ? 'Logging in...' : 'Login' }}
-          </button>
-          
-          <div *ngIf="errorMessage" class="error-message">
-            {{ errorMessage }}
+
+          <div class="register-link">
+            Don't have an account?
+            <a routerLink="/register" class="link">Create one here</a>
           </div>
-        </form>
-        
-        <div class="demo-info">
-          <p><strong>Demo Account:</strong></p>
-          <p>Username: <code>super</code></p>
-          <p>Password: <code>123</code></p>
-        </div>
-      </div>
+        </mat-card-content>
+      </mat-card>
     </div>
   `,
   styles: [`
     .login-container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
       min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 24px;
     }
-    
+
     .login-card {
+      max-width: 450px;
+      width: 100%;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+      animation: slideUp 0.6s ease-out;
       background: white;
-      padding: 2rem;
-      border-radius: 10px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-      width: 100%;
-      max-width: 400px;
     }
-    
-    h2 {
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    mat-card-header {
       text-align: center;
-      color: #333;
-      margin-bottom: 2rem;
+      margin-bottom: 24px;
     }
-    
-    .form-group {
-      margin-bottom: 1rem;
-    }
-    
-    label {
-      display: block;
-      margin-bottom: 0.5rem;
-      color: #555;
+
+    mat-card-title {
+      font-size: 2rem;
       font-weight: 500;
+      color: #333;
     }
-    
-    .form-control {
-      width: 100%;
-      padding: 0.75rem;
-      border: 2px solid #e1e5e9;
-      border-radius: 5px;
+
+    mat-card-subtitle {
       font-size: 1rem;
-      transition: border-color 0.3s ease;
+      color: #666;
+      opacity: 0.9;
     }
-    
-    .form-control:focus {
-      outline: none;
-      border-color: #667eea;
+
+    .success-message {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #e8f5e8;
+      color: #2e7d32;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      text-align: center;
     }
-    
+
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .full-width {
+      width: 100%;
+    }
+
+    .error-message {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #ffebee;
+      color: #c62828;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
     .btn-login {
       width: 100%;
-      padding: 0.75rem;
+      padding: 12px;
+      font-size: 1.1rem;
+      font-weight: 500;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .btn-login:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-login:disabled {
+      background: #95a5a6 !important;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .demo-accounts {
+      margin-top: 24px;
+      padding: 16px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #e9ecef;
+    }
+
+    .demo-accounts h3 {
+      color: #333;
+      font-size: 1.1rem;
+      text-align: center;
+      margin: 0 0 16px 0;
+    }
+
+    .demo-account {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      background: white;
+      border: 1px solid #e9ecef;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      height: 100%;
+      text-align: center;
+    }
+
+    .demo-account:hover {
       background: #667eea;
       color: white;
-      border: none;
-      border-radius: 5px;
-      font-size: 1rem;
-      cursor: pointer;
-      transition: background 0.3s ease;
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
     }
-    
-    .btn-login:hover:not(:disabled) {
-      background: #5a6fd8;
+
+    .demo-account:hover .demo-role,
+    .demo-account:hover .demo-credentials {
+      color: white;
     }
-    
-    .btn-login:disabled {
-      background: #ccc;
-      cursor: not-allowed;
+
+    .demo-role {
+      font-weight: 500;
+      font-size: 0.9rem;
+      color: #333;
     }
-    
-    .error-message {
-      color: #e74c3c;
-      text-align: center;
-      margin-top: 1rem;
-      padding: 0.5rem;
-      background: #fdf2f2;
-      border-radius: 5px;
-    }
-    
-    .demo-info {
-      margin-top: 2rem;
-      padding: 1rem;
-      background: #f8f9fa;
-      border-radius: 5px;
-      border-left: 4px solid #667eea;
-    }
-    
-    .demo-info p {
-      margin: 0.25rem 0;
-      color: #666;
-    }
-    
-    .demo-info code {
-      background: #e9ecef;
-      padding: 0.2rem 0.4rem;
-      border-radius: 3px;
+
+    .demo-credentials {
       font-family: monospace;
+      font-size: 0.85rem;
+      color: #666;
+      opacity: 0.8;
+    }
+
+    .register-link {
+      text-align: center;
+      margin-top: 16px;
+      color: #666;
+      font-size: 0.9rem;
+    }
+
+    .link {
+      color: #667eea;
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.3s ease;
+    }
+
+    .link:hover {
+      color: #5a6fd8;
+      text-decoration: underline;
+    }
+
+    @media (max-width: 768px) {
+      .login-container {
+        padding: 16px;
+      }
+
+      .login-card {
+        padding: 16px;
+      }
+
+      mat-card-title {
+        font-size: 1.8rem;
+      }
+
+      mat-grid-list {
+        grid-template-columns: 1fr !important;
+      }
+
+      .demo-account {
+        padding: 16px;
+      }
     }
   `]
 })
-export class LoginComponent {
-  credentials: UserCredentials = {
-    username: '',
-    password: ''
-  };
-
-  isLoading = false;
-  errorMessage = '';
+export class LoginComponent implements OnInit {
+  loginForm: FormGroup;
 
   constructor(
     private authService: AuthService,
-    private router: Router
-  ) { }
+    private router: Router,
+    private route: ActivatedRoute,
+    private fb: FormBuilder
+  ) {
+    this.loginForm = this.fb.group({
+      username: ['', Validators.required],
+      password: ['', Validators.required]
+    });
+  }
 
-  onLogin(): void {
-    if (!this.credentials.username || !this.credentials.password) {
-      this.errorMessage = 'Please enter both username and password';
+  isSubmitting = false;
+  errorMessage = '';
+  successMessage = '';
+
+  ngOnInit(): void {
+    if (this.authService.isAuthenticated()) {
+      this.router.navigate(['/dashboard']);
       return;
     }
 
-    this.isLoading = true;
-    this.errorMessage = '';
-
-    this.authService.login(this.credentials).subscribe({
-      next: (user) => {
-        this.isLoading = false;
-        this.router.navigate(['/dashboard']);
-      },
-      error: (error) => {
-        this.isLoading = false;
-        this.errorMessage = error || 'Login failed. Please try again.';
+    this.route.queryParams.subscribe(params => {
+      if (params['message']) {
+        this.successMessage = params['message'];
       }
     });
+  }
+
+  async onSubmit(): Promise<void> {
+    if (this.loginForm.invalid) {
+      return;
+    }
+
+    this.isSubmitting = true;
+    this.errorMessage = '';
+
+    try {
+      const success = await this.authService.login(
+        this.loginForm.value.username!,
+        this.loginForm.value.password!
+      );
+
+      if (success) {
+        this.router.navigate(['/dashboard']);
+      } else {
+        this.errorMessage = 'Invalid username or password. Please try again.';
+      }
+    } catch (error) {
+      this.errorMessage = 'An error occurred during login. Please try again.';
+      console.error('Login error:', error);
+    } finally {
+      this.isSubmitting = false;
+    }
+  }
+
+  useDemoAccount(username: string, password: string): void {
+    this.loginForm.setValue({ username, password });
+    this.onSubmit();
   }
 }

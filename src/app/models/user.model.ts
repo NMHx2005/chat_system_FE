@@ -2,7 +2,9 @@ export interface User {
   id: string;
   username: string;
   email: string;
-  roles: UserRole[];
+  password?: string; // Optional password for authentication
+  roles: UserRole[]; // Array of roles (can have multiple roles)
+  role?: UserRole; // Single role for backward compatibility
   groups: string[]; // Array of group IDs
   createdAt: Date;
   updatedAt: Date;
@@ -10,9 +12,9 @@ export interface User {
 }
 
 export enum UserRole {
-  SUPER_ADMIN = 'SUPER_ADMIN',
-  GROUP_ADMIN = 'GROUP_ADMIN',
-  USER = 'USER'
+  SUPER_ADMIN = 'super_admin',
+  GROUP_ADMIN = 'group_admin',
+  USER = 'user'
 }
 
 export interface UserCredentials {
