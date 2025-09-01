@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators, FormGroup } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -12,12 +12,13 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatDialogModule, MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { AuthService } from '../../services/auth.service';
 import { AdminLayoutComponent } from '../layouts/admin-layout.component';
 import { User, UserRole } from '../../models/user.model';
 import { Group } from '../../models/group.model';
 import { Channel, ChannelType } from '../../models/channel.model';
-import { Inject } from '@angular/core';
+
 @Component({
   selector: 'app-create-channel-dialog',
   standalone: true,
@@ -63,9 +64,9 @@ import { Inject } from '@angular/core';
           <mat-label>Channel Type</mat-label>
           <mat-select formControlName="type" required>
             <mat-option value="">Select Type</mat-option>
-            <mat-option value="text">Text Channel</mat-option>
-            <mat-option value="voice">Voice Channel</mat-option>
-            <mat-option value="video">Video Channel</mat-option>
+            <mat-option value="TEXT">Text Channel</mat-option>
+            <mat-option value="VOICE">Voice Channel</mat-option>
+            <mat-option value="VIDEO">Video Channel</mat-option>
           </mat-select>
           <mat-error *ngIf="channelForm.get('type')?.hasError('required')">
             Channel type is required
@@ -103,26 +104,103 @@ export class CreateChannelDialogComponent {
   constructor(
     public dialogRef: MatDialogRef<CreateChannelDialogComponent>,
     private fb: FormBuilder,
-    @Inject(MAT_DIALOG_DATA) public data: { groups: Group[], onCreate: (channel: Partial<Channel>) => void }
+    @Inject(MAT_DIALOG_DATA) public data: {
+      groups: Group[],
+      onCreate: (channel: Partial<Channel>) => void
+    }
   ) {
     this.channelForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(30)]],
       groupId: ['', Validators.required],
-      type: ['', Validators.required],
+      type: ['TEXT', Validators.required],
       description: ['', Validators.maxLength(200)],
       maxMembers: [100, [Validators.min(1), Validators.max(1000)]]
     });
   }
 
-  createChannel() {
+  createChannel(): void {
     if (this.channelForm.valid) {
       this.data.onCreate(this.channelForm.value);
       this.dialogRef.close();
     }
   }
-  // Removed duplicate/erroneous constructor definition. No code needed here.
+}
 
+@Component({
+  selector: 'app-ban-user-dialog',
+  standalone: true,
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatButtonModule,
+    MatIconModule
+  ],
+  template: `
+    <h2 mat-dialog-title>Ban User from Channel</h2>
+    <mat-dialog-content>
+      <form [formGroup]="banForm" (ngSubmit)="banUser()">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Select User to Ban</mat-label>
+          <mat-select formControlName="userId" required>
+            <mat-option value="">Select User</mat-option>
+            <mat-option *ngFor="let user of data.availableUsers" [value]="user.id">
+              {{ user.username }} ({{ user.email }})
+            </mat-option>
+          </mat-select>
+          <mat-error *ngIf="banForm.get('userId')?.hasError('required')">
+            Please select a user to ban
+          </mat-error>
+        </mat-form-field>
 
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Reason for Ban</mat-label>
+          <textarea matInput formControlName="reason" rows="3" maxlength="200" 
+                    placeholder="Enter reason for banning this user..."></textarea>
+        </mat-form-field>
+      </form>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+      <button mat-button (click)="dialogRef.close()">Cancel</button>
+      <button mat-raised-button color="warn" (click)="banUser()" [disabled]="!banForm.valid">
+        Ban User
+      </button>
+    </mat-dialog-actions>
+  `,
+  styles: [`
+    .full-width {
+      width: 100%;
+      margin-bottom: 16px;
+    }
+  `]
+})
+export class BanUserDialogComponent {
+  banForm: FormGroup;
+
+  constructor(
+    public dialogRef: MatDialogRef<BanUserDialogComponent>,
+    private fb: FormBuilder,
+    @Inject(MAT_DIALOG_DATA) public data: {
+      channel: Channel,
+      availableUsers: User[],
+      onBan: (userId: string, reason: string) => void
+    }
+  ) {
+    this.banForm = this.fb.group({
+      userId: ['', Validators.required],
+      reason: ['', Validators.maxLength(200)]
+    });
+  }
+
+  banUser(): void {
+    if (this.banForm.valid) {
+      this.data.onBan(this.banForm.value.userId, this.banForm.value.reason);
+      this.dialogRef.close();
+    }
+  }
 }
 
 @Component({
@@ -131,7 +209,6 @@ export class CreateChannelDialogComponent {
   imports: [
     CommonModule,
     FormsModule,
-    ReactiveFormsModule,
     RouterLink,
     MatCardModule,
     MatButtonModule,
@@ -140,204 +217,254 @@ export class CreateChannelDialogComponent {
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
-    MatDialogModule,
     MatChipsModule,
     MatTooltipModule,
+    MatDialogModule,
+    MatSnackBarModule,
     AdminLayoutComponent
   ],
   template: `
     <app-admin-layout [pageTitle]="'Manage Channels'">
-    <div class="manage-channels-container">
-      <!-- Header Section -->
-      <mat-card class="header-card">
-        <div class="header">
-          <div class="header-content">
-            <h1>Manage Channels</h1>
-            <p>Create, edit, and manage chat channels within groups</p>
+      <div class="manage-channels-container">
+        <!-- Header Section -->
+        <mat-card class="page-header-card">
+          <div class="page-header">
+            <div class="header-content">
+              <h1>Manage Channels</h1>
+              <p>Create, edit, and manage channels across all groups</p>
+            </div>
+            <div class="header-actions">
+              <button mat-stroked-button routerLink="/admin">
+                <mat-icon>arrow_back</mat-icon>
+                Back to Admin
+              </button>
+              <button mat-raised-button color="primary" (click)="openCreateChannelDialog()" 
+                      [disabled]="!canCreateChannel()">
+                <mat-icon>add</mat-icon>
+                Create Channel
+              </button>
+            </div>
           </div>
-          <div class="header-actions">
-            <button mat-stroked-button routerLink="/admin" class="back-button">
-              <mat-icon>arrow_back</mat-icon>
-              Back to Dashboard
-            </button>
-            <button mat-raised-button color="primary" (click)="openCreateChannelDialog()">
-              <mat-icon>add</mat-icon>
-              Create New Channel
-            </button>
-          </div>
+        </mat-card>
+
+        <!-- Statistics Grid -->
+        <div class="stats-grid">
+          <mat-card class="stat-card">
+            <div class="stat-content">
+              <div class="stat-icon-container">
+                <mat-icon class="stat-icon">chat</mat-icon>
+              </div>
+              <div class="stat-details">
+                <h3>{{ getTotalChannelsCount() }}</h3>
+                <p>Total Channels</p>
+              </div>
+            </div>
+          </mat-card>
+
+          <mat-card class="stat-card">
+            <div class="stat-content">
+              <div class="stat-icon-container">
+                <mat-icon class="stat-icon">textsms</mat-icon>
+              </div>
+              <div class="stat-details">
+                <h3>{{ getTextChannelsCount() }}</h3>
+                <p>Text Channels</p>
+              </div>
+            </div>
+          </mat-card>
+
+          <mat-card class="stat-card">
+            <div class="stat-content">
+              <div class="stat-icon-container">
+                <mat-icon class="stat-icon">record_voice_over</mat-icon>
+              </div>
+              <div class="stat-details">
+                <h3>{{ getVoiceChannelsCount() }}</h3>
+                <p>Voice Channels</p>
+              </div>
+            </div>
+          </mat-card>
+
+          <mat-card class="stat-card">
+            <div class="stat-content">
+              <div class="stat-icon-container">
+                <mat-icon class="stat-icon">videocam</mat-icon>
+              </div>
+              <div class="stat-details">
+                <h3>{{ getVideoChannelsCount() }}</h3>
+                <p>Video Channels</p>
+              </div>
+            </div>
+          </mat-card>
         </div>
-      </mat-card>
 
-      <!-- Controls -->
-      <mat-card class="controls-card">
-        <div class="controls">
-          <mat-form-field appearance="outline">
-            <mat-label>Search channels</mat-label>
-            <input matInput [(ngModel)]="searchTerm" (ngModelChange)="filterChannels()" placeholder="Search channels...">
-            <mat-icon matSuffix>search</mat-icon>
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Group</mat-label>
-            <mat-select [(ngModel)]="groupFilter" (ngModelChange)="filterChannels()">
-              <mat-option value="">All Groups</mat-option>
-              <mat-option *ngFor="let group of groups" [value]="group.id">
-                {{ group.name }}
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Type</mat-label>
-            <mat-select [(ngModel)]="typeFilter" (ngModelChange)="filterChannels()">
-              <mat-option value="">All Types</mat-option>
-              <mat-option value="text">Text</mat-option>
-              <mat-option value="voice">Voice</mat-option>
-              <mat-option value="video">Video</mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-      </mat-card>
+        <!-- Search and Filter Section -->
+        <mat-card class="search-section-card">
+          <mat-card-content>
+            <div class="search-section">
+              <mat-form-field appearance="outline" class="search-field">
+                <mat-label>Search channels</mat-label>
+                <input matInput
+                       [(ngModel)]="searchTerm"
+                       placeholder="Search by name or description..."
+                       (input)="filterChannels()">
+                <mat-icon matSuffix>search</mat-icon>
+              </mat-form-field>
 
-      <!-- Channels Table -->
-      <mat-card class="channels-table-card">
-        <mat-card-header>
-          <mat-card-title>
-            <mat-icon>forum</mat-icon>
-            All Channels
-          </mat-card-title>
-        </mat-card-header>
-        <mat-card-content>
-          <table mat-table [dataSource]="filteredChannels" class="mat-elevation-z2">
-            <ng-container matColumnDef="name">
-              <th mat-header-cell *matHeaderCellDef> Channel Name </th>
-              <td mat-cell *matCellDef="let channel">
-                <div class="channel-info">
-                  <strong>{{ channel.name }}</strong>
-                  <small>ID: {{ channel.id }}</small>
-                </div>
-              </td>
-            </ng-container>
+              <div class="filter-options">
+                <mat-form-field appearance="outline" class="filter-field">
+                  <mat-label>Group</mat-label>
+                  <mat-select [(ngModel)]="groupFilter" (selectionChange)="filterChannels()">
+                    <mat-option value="">All Groups</mat-option>
+                    <mat-option *ngFor="let group of groups" [value]="group.id">
+                      {{ group.name }}
+                    </mat-option>
+                  </mat-select>
+                </mat-form-field>
 
-            <ng-container matColumnDef="group">
-              <th mat-header-cell *matHeaderCellDef> Group </th>
-              <td mat-cell *matCellDef="let channel"> {{ getGroupName(channel.groupId) }} </td>
-            </ng-container>
+                <mat-form-field appearance="outline" class="filter-field">
+                  <mat-label>Type</mat-label>
+                  <mat-select [(ngModel)]="typeFilter" (selectionChange)="filterChannels()">
+                    <mat-option value="">All Types</mat-option>
+                    <mat-option value="TEXT">Text</mat-option>
+                    <mat-option value="VOICE">Voice</mat-option>
+                    <mat-option value="VIDEO">Video</mat-option>
+                  </mat-select>
+                </mat-form-field>
 
-            <ng-container matColumnDef="type">
-              <th mat-header-cell *matHeaderCellDef> Type </th>
-              <td mat-cell *matCellDef="let channel">
-                <mat-chip [ngClass]="'type-' + channel.type">
-                  {{ getTypeDisplayName(channel.type) }}
-                </mat-chip>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="description">
-              <th mat-header-cell *matHeaderCellDef> Description </th>
-              <td mat-cell *matCellDef="let channel"> {{ channel.description || 'No description' }} </td>
-            </ng-container>
-
-            <ng-container matColumnDef="members">
-              <th mat-header-cell *matHeaderCellDef> Members </th>
-              <td mat-cell *matCellDef="let channel"> {{ channel.memberCount || 0 }} members </td>
-            </ng-container>
-
-            <ng-container matColumnDef="status">
-              <th mat-header-cell *matHeaderCellDef> Status </th>
-              <td mat-cell *matCellDef="let channel">
-                <mat-chip [ngClass]="channel.isActive ? 'status-active' : 'status-inactive'">
-                  {{ channel.isActive ? 'Active' : 'Inactive' }}
-                </mat-chip>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef> Actions </th>
-              <td mat-cell *matCellDef="let channel">
-                <button mat-icon-button color="primary" [matTooltip]="'View Channel'" (click)="viewChannel(channel)">
-                  <mat-icon>visibility</mat-icon>
+                <button mat-stroked-button (click)="clearFilters()">
+                  <mat-icon>clear</mat-icon>
+                  Clear Filters
                 </button>
-                <button mat-icon-button color="primary" [matTooltip]="'Edit Channel'" *ngIf="canEditChannel(channel)" (click)="editChannel(channel)">
-                  <mat-icon>edit</mat-icon>
-                </button>
-                <button mat-icon-button color="warn" [matTooltip]="'Delete Channel'" *ngIf="canDeleteChannel(channel)" (click)="deleteChannel(channel)">
-                  <mat-icon>delete</mat-icon>
-                </button>
-                <button mat-icon-button color="accent" [matTooltip]="channel.isActive ? 'Deactivate Channel' : 'Activate Channel'"
-                  *ngIf="canToggleChannelStatus(channel)" (click)="toggleChannelStatus(channel)">
-                  <mat-icon>{{ channel.isActive ? 'pause' : 'play_arrow' }}</mat-icon>
-                </button>
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-          </table>
-        </mat-card-content>
-      </mat-card>
-
-      <!-- Stats -->
-      <div class="stats-grid">
-        <mat-card class="stat-card">
-          <div class="stat-content">
-            <div class="stat-icon-container">
-              <mat-icon class="stat-icon">forum</mat-icon>
+              </div>
             </div>
-            <div class="stat-details">
-              <h3>{{ channels.length }}</h3>
-              <p>Total Channels</p>
-            </div>
-          </div>
+          </mat-card-content>
         </mat-card>
-        <mat-card class="stat-card">
-          <div class="stat-content">
-            <div class="stat-icon-container">
-              <mat-icon class="stat-icon">check_circle</mat-icon>
+
+        <!-- Channels Table -->
+        <mat-card class="channels-table-card">
+          <mat-card-header>
+            <mat-card-title>
+              <mat-icon>chat</mat-icon>
+              Channels List
+            </mat-card-title>
+          </mat-card-header>
+
+          <mat-card-content>
+            <div class="table-container">
+              <table mat-table [dataSource]="filteredChannels" class="channels-table">
+                <!-- Name Column -->
+                <ng-container matColumnDef="name">
+                  <th mat-header-cell *matHeaderCellDef>Channel Name</th>
+                  <td mat-cell *matCellDef="let channel">
+                    <div class="channel-info">
+                      <strong>{{ channel.name }}</strong>
+                      <small>{{ channel.description }}</small>
+                    </div>
+                  </td>
+                </ng-container>
+
+                <!-- Group Column -->
+                <ng-container matColumnDef="group">
+                  <th mat-header-cell *matHeaderCellDef>Group</th>
+                  <td mat-cell *matCellDef="let channel">
+                    {{ getGroupName(channel.groupId) }}
+                  </td>
+                </ng-container>
+
+                <!-- Type Column -->
+                <ng-container matColumnDef="type">
+                  <th mat-header-cell *matHeaderCellDef>Type</th>
+                  <td mat-cell *matCellDef="let channel">
+                    <mat-chip class="type-{{ channel.type.toLowerCase() }}">
+                      {{ getTypeDisplayName(channel.type) }}
+                    </mat-chip>
+                  </td>
+                </ng-container>
+
+                <!-- Members Column -->
+                <ng-container matColumnDef="members">
+                  <th mat-header-cell *matHeaderCellDef>Members</th>
+                  <td mat-cell *matCellDef="let channel">
+                    {{ channel.memberCount || channel.members.length }} / {{ channel.maxMembers }}
+                  </td>
+                </ng-container>
+
+                <!-- Created By Column -->
+                <ng-container matColumnDef="createdBy">
+                  <th mat-header-cell *matHeaderCellDef>Created By</th>
+                  <td mat-cell *matCellDef="let channel">
+                    {{ getCreatorName(channel.createdBy) }}
+                  </td>
+                </ng-container>
+
+                <!-- Created Date Column -->
+                <ng-container matColumnDef="created">
+                  <th mat-header-cell *matHeaderCellDef>Created</th>
+                  <td mat-cell *matCellDef="let channel">
+                    {{ channel.createdAt | date:'shortDate' }}
+                  </td>
+                </ng-container>
+
+                <!-- Actions Column -->
+                <ng-container matColumnDef="actions">
+                  <th mat-header-cell *matHeaderCellDef>Actions</th>
+                  <td mat-cell *matCellDef="let channel">
+                    <div class="action-buttons">
+                      <button mat-icon-button matTooltip="View Channel" (click)="viewChannel(channel)">
+                        <mat-icon>visibility</mat-icon>
+                      </button>
+                      
+                      <button mat-icon-button matTooltip="Edit Channel" 
+                              (click)="editChannel(channel)"
+                              [disabled]="!canEditChannel(channel)">
+                        <mat-icon>edit</mat-icon>
+                      </button>
+                      
+                      <button mat-icon-button matTooltip="Ban User" 
+                              (click)="openBanUserDialog(channel)"
+                              [disabled]="!canBanUserFromChannel(channel)">
+                        <mat-icon>block</mat-icon>
+                      </button>
+                      <button mat-icon-button matTooltip="Delete Channel" 
+                              (click)="deleteChannel(channel)"
+                              [disabled]="!canDeleteChannel(channel)"
+                              class="delete-action">
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    </div>
+                  </td>
+                </ng-container>
+
+                <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+              </table>
             </div>
-            <div class="stat-details">
-              <h3>{{ getActiveChannelsCount() }}</h3>
-              <p>Active Channels</p>
+
+            <!-- Empty State -->
+            <div *ngIf="filteredChannels.length === 0" class="empty-state">
+              <mat-icon class="empty-icon">chat_bubble_outline</mat-icon>
+              <h3>No Channels Found</h3>
+              <p>Try adjusting your search criteria or create a new channel.</p>
             </div>
-          </div>
-        </mat-card>
-        <mat-card class="stat-card">
-          <div class="stat-content">
-            <div class="stat-icon-container">
-              <mat-icon class="stat-icon">chat</mat-icon>
-            </div>
-            <div class="stat-details">
-              <h3>{{ getTextChannelsCount() }}</h3>
-              <p>Text Channels</p>
-            </div>
-          </div>
-        </mat-card>
-        <mat-card class="stat-card">
-          <div class="stat-content">
-            <div class="stat-icon-container">
-              <mat-icon class="stat-icon">videocam</mat-icon>
-            </div>
-            <div class="stat-details">
-              <h3>{{ getVoiceVideoChannelsCount() }}</h3>
-              <p>Voice/Video Channels</p>
-            </div>
-          </div>
+          </mat-card-content>
         </mat-card>
       </div>
-    </div>
     </app-admin-layout>
   `,
   styles: [`
     .manage-channels-container {
-      padding: 24px;
       margin: 0 auto;
+      padding: 24px;
     }
 
-    .header-card {
+    .page-header-card {
       margin-bottom: 24px;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
     }
 
-    .header {
+    .page-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -357,28 +484,33 @@ export class CreateChannelDialogComponent {
 
     .header-actions {
       display: flex;
-      align-items: center;
       gap: 16px;
     }
 
-    .back-button {
-      color: white;
-      border-color: rgba(255, 255, 255, 0.3);
-    }
-
-    .controls-card {
+    .search-section-card {
       margin-bottom: 24px;
     }
 
-    .controls {
+    .search-section {
+      display: flex;
+      gap: 24px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .search-field {
+      min-width: 300px;
+      flex: 1;
+    }
+
+    .filter-options {
       display: flex;
       gap: 16px;
       flex-wrap: wrap;
-      padding: 16px;
     }
 
-    mat-form-field {
-      min-width: 200px;
+    .filter-field {
+      min-width: 150px;
     }
 
     .channels-table-card {
@@ -386,7 +518,9 @@ export class CreateChannelDialogComponent {
     }
 
     .mat-card-header {
-      padding-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
 
     .mat-card-title {
@@ -396,21 +530,18 @@ export class CreateChannelDialogComponent {
       font-size: 1.5rem;
     }
 
-    table {
+    .table-container {
+      overflow-x: auto;
+    }
+
+    .channels-table {
       width: 100%;
-      border-collapse: collapse;
     }
 
-    th.mat-header-cell {
-      font-size: 1rem;
+    .channels-table th.mat-header-cell {
+      background-color: #f8f9fa;
       font-weight: 600;
-      color: #333;
-      padding: 12px;
-    }
-
-    td.mat-cell {
-      padding: 12px;
-      color: #666;
+      color: #495057;
     }
 
     tr.mat-row:hover {
@@ -441,16 +572,6 @@ export class CreateChannelDialogComponent {
     .type-video {
       background: #fce4ec !important;
       color: #c2185b !important;
-    }
-
-    .status-active {
-      background: #e8f5e8 !important;
-      color: #2e7d32 !important;
-    }
-
-    .status-inactive {
-      background: #ffebee !important;
-      color: #c62828 !important;
     }
 
     .stats-grid {
@@ -497,13 +618,46 @@ export class CreateChannelDialogComponent {
       margin: 0 0 4px 0;
       font-size: 2rem;
       font-weight: 600;
-      color: #333;
+      color: #2c3e50;
     }
 
     .stat-details p {
       margin: 0;
-      color: #666;
+      color: #7f8c8d;
       font-size: 0.9rem;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .delete-action {
+      color: #e74c3c !important;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px;
+      color: #7f8c8d;
+    }
+
+    .empty-icon {
+      font-size: 64px;
+      width: 64px;
+      height: 64px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    .empty-state h3 {
+      margin: 0 0 8px 0;
+      color: #2c3e50;
+    }
+
+    .empty-state p {
+      margin: 0;
+      opacity: 0.7;
     }
 
     @media (max-width: 768px) {
@@ -511,130 +665,124 @@ export class CreateChannelDialogComponent {
         padding: 16px;
       }
 
-      .header {
+      .page-header {
         flex-direction: column;
         gap: 16px;
         text-align: center;
       }
 
-      .controls {
+      .search-section {
         flex-direction: column;
         align-items: stretch;
       }
 
-      table {
-        display: block;
-        overflow-x: auto;
+      .search-field {
+        min-width: auto;
       }
 
       .stats-grid {
         grid-template-columns: 1fr;
       }
+
+      .action-buttons {
+        flex-direction: column;
+      }
     }
   `]
 })
 export class ManageChannelsComponent implements OnInit {
-  displayedColumns: string[] = ['name', 'group', 'type', 'description', 'members', 'status', 'actions'];
   channels: Channel[] = [];
   filteredChannels: Channel[] = [];
   groups: Group[] = [];
-  searchTerm: string = '';
-  groupFilter: string = '';
-  typeFilter: string = '';
+  searchTerm = '';
+  groupFilter = '';
+  typeFilter = '';
+  displayedColumns = ['name', 'group', 'type', 'members', 'createdBy', 'created', 'actions'];
   currentUser: User | null = null;
 
   constructor(
     private authService: AuthService,
     private router: Router,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private snackBar: MatSnackBar
   ) { }
 
-  ngOnInit() {
+  ngOnInit(): void {
     this.currentUser = this.authService.getCurrentUser();
     this.loadGroups();
     this.loadChannels();
     this.filterChannels();
   }
 
-  loadGroups() {
+  loadGroups(): void {
     const storedGroups = localStorage.getItem('groups');
     if (storedGroups) {
       this.groups = JSON.parse(storedGroups);
     }
   }
 
-  loadChannels() {
+  loadChannels(): void {
     const storedChannels = localStorage.getItem('channels');
     if (storedChannels) {
       this.channels = JSON.parse(storedChannels);
     } else {
-      this.channels = [
-        {
-          id: '1',
-          name: 'general',
-          description: 'General discussion channel',
-          groupId: '1',
-          type: ChannelType.TEXT,
-          isActive: true,
-          createdBy: '1',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          members: [],
-          bannedUsers: [],
-          memberCount: 15,
-          maxMembers: 100
-        },
-        {
-          id: '2',
-          name: 'tech-talk',
-          description: 'Technology discussions and news',
-          groupId: '1',
-          type: ChannelType.TEXT,
-          isActive: true,
-          createdBy: '1',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          members: [],
-          bannedUsers: [],
-          memberCount: 12,
-          maxMembers: 100
-        },
-        {
-          id: '3',
-          name: 'voice-chat',
-          description: 'Voice conversations',
-          groupId: '1',
-          type: ChannelType.VOICE,
-          isActive: true,
-          createdBy: '1',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          members: [],
-          bannedUsers: [],
-          memberCount: 8,
-          maxMembers: 20
-        },
-        {
-          id: '4',
-          name: 'business-general',
-          description: 'General business discussions',
-          groupId: '2',
-          type: ChannelType.TEXT,
-          isActive: true,
-          createdBy: '2',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          members: [],
-          bannedUsers: [],
-          memberCount: 8,
-          maxMembers: 50
-        }
-      ];
-      localStorage.setItem('channels', JSON.stringify(this.channels));
+      // Initialize with default channels if none exist
+      this.initializeDefaultChannels();
     }
   }
 
-  filterChannels() {
+  initializeDefaultChannels(): void {
+    this.channels = [
+      {
+        id: '1',
+        name: 'general',
+        description: 'General discussion channel',
+        groupId: '1', // Development Team
+        type: ChannelType.TEXT,
+        createdBy: '1', // super admin
+        createdAt: new Date('2025-01-01'),
+        updatedAt: new Date(),
+        members: ['1', '2', '3'],
+        bannedUsers: [],
+        isActive: true,
+        memberCount: 3,
+        maxMembers: 50
+      },
+      {
+        id: '2',
+        name: 'frontend',
+        description: 'Frontend development discussions',
+        groupId: '1', // Development Team
+        type: ChannelType.TEXT,
+        createdBy: '1', // super admin
+        createdAt: new Date('2025-01-01'),
+        updatedAt: new Date(),
+        members: ['1', '2'],
+        bannedUsers: [],
+        isActive: true,
+        memberCount: 2,
+        maxMembers: 30
+      },
+      {
+        id: '3',
+        name: 'ui-ux',
+        description: 'UI/UX design discussions',
+        groupId: '2', // Design Team
+        type: ChannelType.TEXT,
+        createdBy: '2', // group admin
+        createdAt: new Date('2025-02-01'),
+        updatedAt: new Date(),
+        members: ['2', '3'],
+        bannedUsers: [],
+        isActive: true,
+        memberCount: 2,
+        maxMembers: 25
+      }
+    ];
+    localStorage.setItem('channels', JSON.stringify(this.channels));
+  }
+
+  filterChannels(): void {
     this.filteredChannels = this.channels.filter(channel => {
       const matchesSearch = channel.name.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
         (channel.description && channel.description.toLowerCase().includes(this.searchTerm.toLowerCase()));
@@ -658,12 +806,26 @@ export class ManageChannelsComponent implements OnInit {
     return group ? group.name : 'Unknown Group';
   }
 
+  getCreatorName(creatorId: string): string {
+    const users = JSON.parse(localStorage.getItem('users') || '[]');
+    const creator = users.find((u: User) => u.id === creatorId);
+    return creator ? creator.username : 'Unknown';
+  }
+
+  // Business Logic: Permission checks
+  canCreateChannel(): boolean {
+    if (!this.currentUser) return false;
+    return this.currentUser.roles.includes(UserRole.SUPER_ADMIN) ||
+      this.currentUser.roles.includes(UserRole.GROUP_ADMIN);
+  }
+
   canEditChannel(channel: Channel): boolean {
     if (!this.currentUser) return false;
     if (this.currentUser.roles.includes(UserRole.SUPER_ADMIN)) return true;
     if (this.currentUser.roles.includes(UserRole.GROUP_ADMIN)) {
+      // Check if user is admin of the group that contains this channel
       const group = this.groups.find(g => g.id === channel.groupId);
-      return !!group && group.createdBy === this.currentUser.id;
+      return group ? group.createdBy === this.currentUser.id : false;
     }
     return false;
   }
@@ -672,88 +834,237 @@ export class ManageChannelsComponent implements OnInit {
     if (!this.currentUser) return false;
     if (this.currentUser.roles.includes(UserRole.SUPER_ADMIN)) return true;
     if (this.currentUser.roles.includes(UserRole.GROUP_ADMIN)) {
+      // Check if user is admin of the group that contains this channel
       const group = this.groups.find(g => g.id === channel.groupId);
-      return !!group && group.createdBy === this.currentUser.id;
+      return group ? group.createdBy === this.currentUser.id : false;
     }
     return false;
   }
 
-  canToggleChannelStatus(channel: Channel): boolean {
+  canBanUserFromChannel(channel: Channel): boolean {
     if (!this.currentUser) return false;
     if (this.currentUser.roles.includes(UserRole.SUPER_ADMIN)) return true;
     if (this.currentUser.roles.includes(UserRole.GROUP_ADMIN)) {
+      // Check if user is admin of the group that contains this channel
       const group = this.groups.find(g => g.id === channel.groupId);
-      return !!group && group.createdBy === this.currentUser.id;
+      return group ? group.createdBy === this.currentUser.id : false;
     }
     return false;
   }
 
-  viewChannel(channel: Channel) {
-    this.router.navigate(['/group', channel.groupId, 'channel', channel.id]);
+  // CRUD Operations
+  viewChannel(channel: Channel): void {
+    this.router.navigate(['/admin/channels', channel.id]);
   }
 
-  editChannel(channel: Channel) {
+  editChannel(channel: Channel): void {
     this.router.navigate(['/admin/channels', channel.id, 'edit']);
   }
 
-  deleteChannel(channel: Channel) {
-    if (confirm(`Are you sure you want to delete channel "#${channel.name}"?`)) {
+  async deleteChannel(channel: Channel): Promise<void> {
+    if (!confirm(`Are you sure you want to delete channel "${channel.name}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      // Check if channel has members
+      if (channel.members.length > 0) {
+        this.snackBar.open('Cannot delete channel with active members. Remove all members first.', 'Close', {
+          duration: 5000,
+          panelClass: ['error-snackbar']
+        });
+        return;
+      }
+
+      // Remove channel from group's channels array
+      this.removeChannelFromGroup(channel.id, channel.groupId);
+
+      // Delete the channel
       this.channels = this.channels.filter(c => c.id !== channel.id);
       this.updateChannels();
       this.filterChannels();
+
+      this.snackBar.open(`Channel "${channel.name}" deleted successfully`, 'Close', {
+        duration: 3000,
+        panelClass: ['success-snackbar']
+      });
+    } catch (error) {
+      this.snackBar.open('Failed to delete channel. Please try again.', 'Close', {
+        duration: 5000,
+        panelClass: ['error-snackbar']
+      });
     }
   }
 
-  toggleChannelStatus(channel: Channel) {
-    channel.isActive = !channel.isActive;
-    this.updateChannels();
-    this.filterChannels();
-  }
-
-  openCreateChannelDialog() {
+  openCreateChannelDialog(): void {
     const dialogRef = this.dialog.open(CreateChannelDialogComponent, {
       width: '500px',
       data: {
         groups: this.groups,
         onCreate: (channelData: Partial<Channel>) => {
-          const channel: Channel = {
+          const newChannel: Channel = {
             id: Date.now().toString(),
             name: channelData.name!,
             description: channelData.description || '',
             groupId: channelData.groupId!,
-            type: channelData.type! as ChannelType,
-            isActive: true,
+            type: channelData.type as ChannelType,
             createdBy: this.currentUser!.id,
             createdAt: new Date(),
             updatedAt: new Date(),
-            members: [],
+            members: [this.currentUser!.id], // Creator becomes first member
             bannedUsers: [],
+            isActive: true,
             memberCount: 1,
             maxMembers: channelData.maxMembers || 100
           };
-          this.channels.push(channel);
+
+          this.channels.push(newChannel);
+          this.addChannelToGroup(newChannel.id, newChannel.groupId);
           this.updateChannels();
           this.filterChannels();
+
+          this.snackBar.open(`Channel "${newChannel.name}" created successfully`, 'Close', {
+            duration: 3000,
+            panelClass: ['success-snackbar']
+          });
         }
       }
     });
   }
 
-  updateChannels() {
+  openBanUserDialog(channel: Channel): void {
+    // Get users who are members of this channel but not already banned
+    const availableUsers = this.getChannelMembers(channel).filter(user =>
+      !channel.bannedUsers.includes(user.id) && user.id !== this.currentUser!.id
+    );
+
+    if (availableUsers.length === 0) {
+      this.snackBar.open('No users available to ban from this channel', 'Close', {
+        duration: 3000,
+        panelClass: ['warning-snackbar']
+      });
+      return;
+    }
+
+    const dialogRef = this.dialog.open(BanUserDialogComponent, {
+      width: '500px',
+      data: {
+        channel: channel,
+        availableUsers: availableUsers,
+        onBan: (userId: string, reason: string) => {
+          this.banUserFromChannel(channel, userId, reason);
+        }
+      }
+    });
+  }
+
+  banUserFromChannel(channel: Channel, userId: string, reason: string): void {
+    try {
+      // Add user to banned list
+      const channelIndex = this.channels.findIndex(c => c.id === channel.id);
+      if (channelIndex > -1) {
+        this.channels[channelIndex].bannedUsers.push(userId);
+        this.channels[channelIndex].updatedAt = new Date();
+
+        // Remove user from members list
+        this.channels[channelIndex].members = this.channels[channelIndex].members.filter(id => id !== userId);
+        this.channels[channelIndex].memberCount = this.channels[channelIndex].members.length;
+
+        this.updateChannels();
+        this.filterChannels();
+
+        // Report to Super Admin (store in localStorage for now)
+        this.reportToSuperAdmin(channel, userId, reason);
+
+        this.snackBar.open(`User banned from channel "${channel.name}" successfully`, 'Close', {
+          duration: 3000,
+          panelClass: ['success-snackbar']
+        });
+      }
+    } catch (error) {
+      this.snackBar.open('Failed to ban user. Please try again.', 'Close', {
+        duration: 5000,
+        panelClass: ['error-snackbar']
+      });
+    }
+  }
+
+  reportToSuperAdmin(channel: Channel, userId: string, reason: string): void {
+    // Store report in localStorage for Super Admin to review
+    const reports = JSON.parse(localStorage.getItem('adminReports') || '[]');
+    const user = this.getUserById(userId);
+
+    reports.push({
+      id: Date.now().toString(),
+      type: 'USER_BANNED_FROM_CHANNEL',
+      channelId: channel.id,
+      channelName: channel.name,
+      userId: userId,
+      username: user?.username || 'Unknown',
+      reason: reason,
+      reportedBy: this.currentUser!.id,
+      reportedByUsername: this.currentUser!.username,
+      reportedAt: new Date(),
+      status: 'pending'
+    });
+
+    localStorage.setItem('adminReports', JSON.stringify(reports));
+  }
+
+  getChannelMembers(channel: Channel): User[] {
+    const users = JSON.parse(localStorage.getItem('users') || '[]');
+    return users.filter((user: User) => channel.members.includes(user.id));
+  }
+
+  getUserById(userId: string): User | null {
+    const users = JSON.parse(localStorage.getItem('users') || '[]');
+    return users.find((user: User) => user.id === userId) || null;
+  }
+
+  // Helper methods
+  removeChannelFromGroup(channelId: string, groupId: string): void {
+    const group = this.groups.find(g => g.id === groupId);
+    if (group) {
+      group.channels = group.channels.filter(c => c !== channelId);
+      localStorage.setItem('groups', JSON.stringify(this.groups));
+    }
+  }
+
+  addChannelToGroup(channelId: string, groupId: string): void {
+    const group = this.groups.find(g => g.id === groupId);
+    if (group) {
+      if (!group.channels.includes(channelId)) {
+        group.channels.push(channelId);
+        localStorage.setItem('groups', JSON.stringify(this.groups));
+      }
+    }
+  }
+
+  updateChannels(): void {
     localStorage.setItem('channels', JSON.stringify(this.channels));
   }
 
-  getActiveChannelsCount(): number {
-    return this.channels.filter(channel => channel.isActive).length;
+  clearFilters(): void {
+    this.searchTerm = '';
+    this.groupFilter = '';
+    this.typeFilter = '';
+    this.filterChannels();
+  }
+
+  // Statistics methods
+  getTotalChannelsCount(): number {
+    return this.channels.length;
   }
 
   getTextChannelsCount(): number {
     return this.channels.filter(channel => channel.type === ChannelType.TEXT).length;
   }
 
-  getVoiceVideoChannelsCount(): number {
-    return this.channels.filter(channel =>
-      channel.type === ChannelType.VOICE || channel.type === ChannelType.VIDEO
-    ).length;
+  getVoiceChannelsCount(): number {
+    return this.channels.filter(channel => channel.type === ChannelType.VOICE).length;
+  }
+
+  getVideoChannelsCount(): number {
+    return this.channels.filter(channel => channel.type === ChannelType.VIDEO).length;
   }
 }

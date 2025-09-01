@@ -13,22 +13,22 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
-    selector: 'app-admin-layout',
-    standalone: true,
-    imports: [
-        CommonModule,
-        RouterModule,
-        MatSidenavModule,
-        MatToolbarModule,
-        MatButtonModule,
-        MatIconModule,
-        MatListModule,
-        MatDividerModule,
-        MatBadgeModule,
-        MatMenuModule,
-        MatTooltipModule
-    ],
-    template: `
+  selector: 'app-admin-layout',
+  standalone: true,
+  imports: [
+    CommonModule,
+    RouterModule,
+    MatSidenavModule,
+    MatToolbarModule,
+    MatButtonModule,
+    MatIconModule,
+    MatListModule,
+    MatDividerModule,
+    MatBadgeModule,
+    MatMenuModule,
+    MatTooltipModule
+  ],
+  template: `
     <mat-sidenav-container class="admin-sidenav-container">
       <!-- Sidebar -->
       <mat-sidenav #sidenav mode="side" opened class="admin-sidenav" [ngClass]="{'sidenav-collapsed': !sidenav.opened}">
@@ -37,9 +37,9 @@ import { AuthService } from '../../services/auth.service';
         </div>
         
         <mat-nav-list>
-          <a mat-list-item routerLink="/dashboard" routerLinkActive="active-link" matTooltip="View dashboard">
-            <mat-icon>dashboard</mat-icon>
-            <span *ngIf="sidenav.opened">Dashboard</span>
+          <a mat-list-item routerLink="/admin" routerLinkActive="active-link" matTooltip="View admin panel">
+            <mat-icon>admin_panel_settings</mat-icon>
+            <span *ngIf="sidenav.opened">Admin Panel</span>
           </a>
           
           <a mat-list-item routerLink="/admin/users" routerLinkActive="active-link" matTooltip="Manage users">
@@ -55,6 +55,12 @@ import { AuthService } from '../../services/auth.service';
           <a mat-list-item routerLink="/admin/channels" routerLinkActive="active-link" matTooltip="Manage channels">
             <mat-icon>chat</mat-icon>
             <span *ngIf="sidenav.opened">Manage Channels</span>
+          </a>
+          
+          <a mat-list-item routerLink="/admin/group-requests" routerLinkActive="active-link" matTooltip="Review group join requests">
+            <mat-icon>group_add</mat-icon>
+            <span *ngIf="sidenav.opened">Group Requests</span>
+            <span *ngIf="getPendingRequestsCount() > 0" class="notification-badge">{{ getPendingRequestsCount() }}</span>
           </a>
           
           <mat-divider></mat-divider>
@@ -122,7 +128,7 @@ import { AuthService } from '../../services/auth.service';
       </mat-sidenav-content>
     </mat-sidenav-container>
   `,
-    styles: [`
+  styles: [`
     .admin-sidenav-container {
       height: 100vh;
     }
@@ -173,6 +179,20 @@ import { AuthService } from '../../services/auth.service';
       font-size: 24px;
       width: 24px;
       height: 24px;
+    }
+
+    .notification-badge {
+      background-color: #f44336;
+      color: white;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: auto;
+      font-weight: 600;
     }
 
     .admin-header {
@@ -244,18 +264,27 @@ import { AuthService } from '../../services/auth.service';
   `]
 })
 export class AdminLayoutComponent {
-    @Input() pageTitle: string = 'Admin Panel';
-    @Input() notificationCount: number = 0;
+  @Input() pageTitle: string = 'Admin Panel';
+  @Input() notificationCount: number = 0;
 
-    // Mock notifications for demonstration
-    notifications: { icon: string; text: string }[] = [
-        { icon: 'person_add', text: 'New user registered' },
-        { icon: 'group_add', text: 'New group created' }
-    ];
+  // Mock notifications for demonstration
+  notifications: { icon: string; text: string }[] = [
+    { icon: 'person_add', text: 'New user registered' },
+    { icon: 'group_add', text: 'New group created' }
+  ];
 
-    constructor(private authService: AuthService) { }
+  constructor(private authService: AuthService) { }
 
-    logout(): void {
-        this.authService.logout();
+  logout(): void {
+    this.authService.logout();
+  }
+
+  getPendingRequestsCount(): number {
+    const storedRequests = localStorage.getItem('groupInterestRequests');
+    if (storedRequests) {
+      const requests = JSON.parse(storedRequests);
+      return requests.filter((req: any) => req.status === 'pending').length;
     }
+    return 0;
+  }
 }

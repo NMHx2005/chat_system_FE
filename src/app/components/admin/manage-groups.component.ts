@@ -12,6 +12,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatDialogModule, MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { AuthService } from '../../services/auth.service';
 import { AdminLayoutComponent } from '../layouts/admin-layout.component';
 import { User, UserRole } from '../../models/user.model';
@@ -101,7 +102,7 @@ export class CreateGroupDialogComponent {
     });
   }
 
-  createGroup() {
+  createGroup(): void {
     if (this.groupForm.valid) {
       this.data.onCreate(this.groupForm.value);
       this.dialogRef.close();
@@ -115,7 +116,6 @@ export class CreateGroupDialogComponent {
   imports: [
     CommonModule,
     FormsModule,
-    ReactiveFormsModule,
     RouterLink,
     MatCardModule,
     MatButtonModule,
@@ -124,206 +124,267 @@ export class CreateGroupDialogComponent {
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
-    MatDialogModule,
     MatChipsModule,
     MatTooltipModule,
+    MatDialogModule,
+    MatSnackBarModule,
     AdminLayoutComponent
   ],
   template: `
     <app-admin-layout [pageTitle]="'Manage Groups'">
-    <div class="manage-groups-container">
-      <!-- Header Section -->
-      <mat-card class="header-card">
-        <div class="header">
-          <div class="header-content">
-            <h1>Manage Groups</h1>
-            <p>Create, edit, and manage chat groups</p>
+      <div class="manage-groups-container">
+        <!-- Header Section -->
+        <mat-card class="page-header-card">
+          <div class="page-header">
+            <div class="header-content">
+              <h1>Manage Groups</h1>
+              <p>Create, edit, and manage groups across the platform</p>
+            </div>
+            <div class="header-actions">
+              <button mat-stroked-button routerLink="/admin">
+                <mat-icon>arrow_back</mat-icon>
+                Back to Admin
+              </button>
+              <button mat-raised-button color="primary" (click)="openCreateGroupDialog()" 
+                      [disabled]="!canCreateGroup()">
+                <mat-icon>add</mat-icon>
+                Create Group
+              </button>
+            </div>
           </div>
-          <div class="header-actions">
-            <button mat-stroked-button routerLink="/admin" class="back-button">
-              <mat-icon>arrow_back</mat-icon>
-              Back to Dashboard
-            </button>
-            <button mat-raised-button color="primary" (click)="openCreateGroupDialog()">
-              <mat-icon>add</mat-icon>
-              Create New Group
-            </button>
-          </div>
+        </mat-card>
+
+        <!-- Statistics Grid -->
+        <div class="stats-grid">
+          <mat-card class="stat-card">
+            <div class="stat-content">
+              <div class="stat-icon-container">
+                <mat-icon class="stat-icon">group_work</mat-icon>
+              </div>
+              <div class="stat-details">
+                <h3>{{ getTotalGroupsCount() }}</h3>
+                <p>Total Groups</p>
+              </div>
+            </div>
+          </mat-card>
+
+          <mat-card class="stat-card">
+            <div class="stat-content">
+              <div class="stat-icon-container">
+                <mat-icon class="stat-icon">check_circle</mat-icon>
+              </div>
+              <div class="stat-details">
+                <h3>{{ getActiveGroupsCount() }}</h3>
+                <p>Active Groups</p>
+              </div>
+            </div>
+          </mat-card>
+
+          <mat-card class="stat-card">
+            <div class="stat-content">
+              <div class="stat-icon-container">
+                <mat-icon class="stat-icon">people</mat-icon>
+              </div>
+              <div class="stat-details">
+                <h3>{{ getTotalMembersCount() }}</h3>
+                <p>Total Members</p>
+              </div>
+            </div>
+          </mat-card>
+
+          <mat-card class="stat-card">
+            <div class="stat-content">
+              <div class="stat-icon-container">
+                <mat-icon class="stat-icon">pending</mat-icon>
+              </div>
+              <div class="stat-details">
+                <h3>{{ getPendingRequestsCount() }}</h3>
+                <p>Pending Requests</p>
+              </div>
+            </div>
+          </mat-card>
         </div>
-      </mat-card>
 
-      <!-- Controls -->
-      <mat-card class="controls-card">
-        <div class="controls">
-          <mat-form-field appearance="outline">
-            <mat-label>Search groups</mat-label>
-            <input matInput [(ngModel)]="searchTerm" (ngModelChange)="filterGroups()" placeholder="Search groups...">
-            <mat-icon matSuffix>search</mat-icon>
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Status</mat-label>
-            <mat-select [(ngModel)]="statusFilter" (ngModelChange)="filterGroups()">
-              <mat-option value="">All Status</mat-option>
-              <mat-option value="active">Active</mat-option>
-              <mat-option value="inactive">Inactive</mat-option>
-              <mat-option value="pending">Pending</mat-option>
-            </mat-select>
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Category</mat-label>
-            <mat-select [(ngModel)]="categoryFilter" (ngModelChange)="filterGroups()">
-              <mat-option value="">All Categories</mat-option>
-              <mat-option value="technology">Technology</mat-option>
-              <mat-option value="business">Business</mat-option>
-              <mat-option value="education">Education</mat-option>
-              <mat-option value="entertainment">Entertainment</mat-option>
-              <mat-option value="other">Other</mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-      </mat-card>
+        <!-- Search and Filter Section -->
+        <mat-card class="search-section-card">
+          <mat-card-content>
+            <div class="search-section">
+              <mat-form-field appearance="outline" class="search-field">
+                <mat-label>Search groups</mat-label>
+                <input matInput
+                       [(ngModel)]="searchTerm"
+                       placeholder="Search by name or description..."
+                       (input)="filterGroups()">
+                <mat-icon matSuffix>search</mat-icon>
+              </mat-form-field>
 
-      <!-- Groups Table -->
-      <mat-card class="groups-table-card">
-        <mat-card-header>
-          <mat-card-title>
-            <mat-icon>group_work</mat-icon>
-            All Groups
-          </mat-card-title>
-        </mat-card-header>
-        <mat-card-content>
-          <table mat-table [dataSource]="filteredGroups" class="mat-elevation-z2">
-            <ng-container matColumnDef="name">
-              <th mat-header-cell *matHeaderCellDef> Group Name </th>
-              <td mat-cell *matCellDef="let group">
-                <div class="group-info">
-                  <strong>{{ group.name }}</strong>
-                  <small>ID: {{ group.id }}</small>
-                </div>
-              </td>
-            </ng-container>
+              <div class="filter-options">
+                <mat-form-field appearance="outline" class="filter-field">
+                  <mat-label>Status</mat-label>
+                  <mat-select [(ngModel)]="statusFilter" (selectionChange)="filterGroups()">
+                    <mat-option value="">All Status</mat-option>
+                    <mat-option value="ACTIVE">Active</mat-option>
+                    <mat-option value="INACTIVE">Inactive</mat-option>
+                    <mat-option value="PENDING">Pending</mat-option>
+                  </mat-select>
+                </mat-form-field>
 
-            <ng-container matColumnDef="description">
-              <th mat-header-cell *matHeaderCellDef> Description </th>
-              <td mat-cell *matCellDef="let group"> {{ group.description }} </td>
-            </ng-container>
+                <mat-form-field appearance="outline" class="filter-field">
+                  <mat-label>Category</mat-label>
+                  <mat-select [(ngModel)]="categoryFilter" (selectionChange)="filterGroups()">
+                    <mat-option value="">All Categories</mat-option>
+                    <mat-option value="technology">Technology</mat-option>
+                    <mat-option value="business">Business</mat-option>
+                    <mat-option value="education">Education</mat-option>
+                    <mat-option value="entertainment">Entertainment</mat-option>
+                    <mat-option value="other">Other</mat-option>
+                  </mat-select>
+                </mat-form-field>
 
-            <ng-container matColumnDef="category">
-              <th mat-header-cell *matHeaderCellDef> Category </th>
-              <td mat-cell *matCellDef="let group">
-                <mat-chip [ngClass]="'category-' + group.category">
-                  {{ group.category | titlecase }}
-                </mat-chip>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="status">
-              <th mat-header-cell *matHeaderCellDef> Status </th>
-              <td mat-cell *matCellDef="let group">
-                <mat-chip [ngClass]="'status-' + group.status">
-                  {{ getStatusDisplayName(group.status) }}
-                </mat-chip>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="members">
-              <th mat-header-cell *matHeaderCellDef> Members </th>
-              <td mat-cell *matCellDef="let group"> {{ group.memberCount || 0 }} members </td>
-            </ng-container>
-
-            <ng-container matColumnDef="createdBy">
-              <th mat-header-cell *matHeaderCellDef> Created By </th>
-              <td mat-cell *matCellDef="let group"> {{ getCreatorName(group.createdBy) }} </td>
-            </ng-container>
-
-            <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef> Actions </th>
-              <td mat-cell *matCellDef="let group">
-                <button mat-icon-button color="primary" [matTooltip]="'View Group'" (click)="viewGroup(group)">
-                  <mat-icon>visibility</mat-icon>
+                <button mat-stroked-button (click)="clearFilters()">
+                  <mat-icon>clear</mat-icon>
+                  Clear Filters
                 </button>
-                <button mat-icon-button color="primary" [matTooltip]="'Edit Group'" *ngIf="canEditGroup(group)" (click)="editGroup(group)">
-                  <mat-icon>edit</mat-icon>
-                </button>
-                <button mat-icon-button color="warn" [matTooltip]="'Delete Group'" *ngIf="canDeleteGroup(group)" (click)="deleteGroup(group)">
-                  <mat-icon>delete</mat-icon>
-                </button>
-                <button mat-icon-button color="accent" [matTooltip]="group.status === 'active' ? 'Deactivate Group' : 'Activate Group'"
-                  *ngIf="canToggleGroupStatus(group)" (click)="toggleGroupStatus(group)">
-                  <mat-icon>{{ group.status === 'active' ? 'pause' : 'play_arrow' }}</mat-icon>
-                </button>
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-          </table>
-        </mat-card-content>
-      </mat-card>
-
-      <!-- Stats -->
-      <div class="stats-grid">
-        <mat-card class="stat-card">
-          <div class="stat-content">
-            <div class="stat-icon-container">
-              <mat-icon class="stat-icon">group_work</mat-icon>
+              </div>
             </div>
-            <div class="stat-details">
-              <h3>{{ groups.length }}</h3>
-              <p>Total Groups</p>
-            </div>
-          </div>
+          </mat-card-content>
         </mat-card>
-        <mat-card class="stat-card">
-          <div class="stat-content">
-            <div class="stat-icon-container">
-              <mat-icon class="stat-icon">check_circle</mat-icon>
+
+        <!-- Groups Table -->
+        <mat-card class="groups-table-card">
+          <mat-card-header>
+            <mat-card-title>
+              <mat-icon>group_work</mat-icon>
+              Groups List
+            </mat-card-title>
+          </mat-card-header>
+
+          <mat-card-content>
+            <div class="table-container">
+              <table mat-table [dataSource]="filteredGroups" class="groups-table">
+                <!-- Name Column -->
+                <ng-container matColumnDef="name">
+                  <th mat-header-cell *matHeaderCellDef>Group Name</th>
+                  <td mat-cell *matCellDef="let group">
+                    <div class="group-info">
+                      <strong>{{ group.name }}</strong>
+                      <small>{{ group.description }}</small>
+                    </div>
+                  </td>
+                </ng-container>
+
+                <!-- Category Column -->
+                <ng-container matColumnDef="category">
+                  <th mat-header-cell *matHeaderCellDef>Category</th>
+                  <td mat-cell *matCellDef="let group">
+                    <mat-chip class="category-{{ group.category }}">
+                      {{ group.category }}
+                    </mat-chip>
+                  </td>
+                </ng-container>
+
+                <!-- Status Column -->
+                <ng-container matColumnDef="status">
+                  <th mat-header-cell *matHeaderCellDef>Status</th>
+                  <td mat-cell *matCellDef="let group">
+                    <mat-chip class="status-{{ group.status.toLowerCase() }}">
+                      {{ getStatusDisplayName(group.status) }}
+                    </mat-chip>
+                  </td>
+                </ng-container>
+
+                <!-- Members Column -->
+                <ng-container matColumnDef="members">
+                  <th mat-header-cell *matHeaderCellDef>Members</th>
+                  <td mat-cell *matCellDef="let group">
+                    {{ group.memberCount || group.members.length }} / {{ group.maxMembers }}
+                  </td>
+                </ng-container>
+
+                <!-- Channels Column -->
+                <ng-container matColumnDef="channels">
+                  <th mat-header-cell *matHeaderCellDef>Channels</th>
+                  <td mat-cell *matCellDef="let group">
+                    {{ group.channels.length }}
+                  </td>
+                </ng-container>
+
+                <!-- Created By Column -->
+                <ng-container matColumnDef="createdBy">
+                  <th mat-header-cell *matHeaderCellDef>Created By</th>
+                  <td mat-cell *matCellDef="let group">
+                    {{ getCreatorName(group.createdBy) }}
+                  </td>
+                </ng-container>
+
+                <!-- Created Date Column -->
+                <ng-container matColumnDef="created">
+                  <th mat-header-cell *matHeaderCellDef>Created</th>
+                  <td mat-cell *matCellDef="let group">
+                    {{ group.createdAt | date:'shortDate' }}
+                  </td>
+                </ng-container>
+
+                <!-- Actions Column -->
+                <ng-container matColumnDef="actions">
+                  <th mat-header-cell *matHeaderCellDef>Actions</th>
+                  <td mat-cell *matCellDef="let group">
+                    <div class="action-buttons">
+                      <button mat-icon-button matTooltip="View Group" (click)="viewGroup(group)">
+                        <mat-icon>visibility</mat-icon>
+                      </button>
+                      
+                      <button mat-icon-button matTooltip="Edit Group" 
+                              (click)="editGroup(group)"
+                              [disabled]="!canEditGroup(group)">
+                        <mat-icon>edit</mat-icon>
+                      </button>
+                      
+                      <button mat-icon-button matTooltip="Toggle Status" 
+                              (click)="toggleGroupStatus(group)"
+                              [disabled]="!canToggleGroupStatus(group)">
+                        <mat-icon>{{ group.status === 'ACTIVE' ? 'block' : 'check_circle' }}</mat-icon>
+                      </button>
+                      
+                      <button mat-icon-button matTooltip="Delete Group" 
+                              (click)="deleteGroup(group)"
+                              [disabled]="!canDeleteGroup(group)"
+                              class="delete-action">
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    </div>
+                  </td>
+                </ng-container>
+
+                <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+              </table>
             </div>
-            <div class="stat-details">
-              <h3>{{ getActiveGroupsCount() }}</h3>
-              <p>Active Groups</p>
+
+            <!-- Empty State -->
+            <div *ngIf="filteredGroups.length === 0" class="empty-state">
+              <mat-icon class="empty-icon">group_off</mat-icon>
+              <h3>No Groups Found</h3>
+              <p>Try adjusting your search criteria or create a new group.</p>
             </div>
-          </div>
-        </mat-card>
-        <mat-card class="stat-card">
-          <div class="stat-content">
-            <div class="stat-icon-container">
-              <mat-icon class="stat-icon">people</mat-icon>
-            </div>
-            <div class="stat-details">
-              <h3>{{ getTotalMembersCount() }}</h3>
-              <p>Total Members</p>
-            </div>
-          </div>
-        </mat-card>
-        <mat-card class="stat-card">
-          <div class="stat-content">
-            <div class="stat-icon-container">
-              <mat-icon class="stat-icon">pending</mat-icon>
-            </div>
-            <div class="stat-details">
-              <h3>{{ getPendingRequestsCount() }}</h3>
-              <p>Pending Requests</p>
-            </div>
-          </div>
+          </mat-card-content>
         </mat-card>
       </div>
-    </div>
     </app-admin-layout>
   `,
   styles: [`
     .manage-groups-container {
-      padding: 24px;
       margin: 0 auto;
+      padding: 24px;
     }
 
-    .header-card {
+    .page-header-card {
       margin-bottom: 24px;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
     }
 
-    .header {
+    .page-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -343,28 +404,33 @@ export class CreateGroupDialogComponent {
 
     .header-actions {
       display: flex;
-      align-items: center;
       gap: 16px;
     }
 
-    .back-button {
-      color: white;
-      border-color: rgba(255, 255, 255, 0.3);
-    }
-
-    .controls-card {
+    .search-section-card {
       margin-bottom: 24px;
     }
 
-    .controls {
+    .search-section {
+      display: flex;
+      gap: 24px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .search-field {
+      min-width: 300px;
+      flex: 1;
+    }
+
+    .filter-options {
       display: flex;
       gap: 16px;
       flex-wrap: wrap;
-      padding: 16px;
     }
 
-    mat-form-field {
-      min-width: 200px;
+    .filter-field {
+      min-width: 150px;
     }
 
     .groups-table-card {
@@ -372,7 +438,9 @@ export class CreateGroupDialogComponent {
     }
 
     .mat-card-header {
-      padding-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
 
     .mat-card-title {
@@ -382,21 +450,18 @@ export class CreateGroupDialogComponent {
       font-size: 1.5rem;
     }
 
-    table {
+    .table-container {
+      overflow-x: auto;
+    }
+
+    .groups-table {
       width: 100%;
-      border-collapse: collapse;
     }
 
-    th.mat-header-cell {
-      font-size: 1rem;
+    .groups-table th.mat-header-cell {
+      background-color: #f8f9fa;
       font-weight: 600;
-      color: #333;
-      padding: 12px;
-    }
-
-    td.mat-cell {
-      padding: 12px;
-      color: #666;
+      color: #495057;
     }
 
     tr.mat-row:hover {
@@ -498,13 +563,46 @@ export class CreateGroupDialogComponent {
       margin: 0 0 4px 0;
       font-size: 2rem;
       font-weight: 600;
-      color: #333;
+      color: #2c3e50;
     }
 
     .stat-details p {
       margin: 0;
-      color: #666;
+      color: #7f8c8d;
       font-size: 0.9rem;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .delete-action {
+      color: #e74c3c !important;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px;
+      color: #7f8c8d;
+    }
+
+    .empty-icon {
+      font-size: 64px;
+      width: 64px;
+      height: 64px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    .empty-state h3 {
+      margin: 0 0 8px 0;
+      color: #2c3e50;
+    }
+
+    .empty-state p {
+      margin: 0;
+      opacity: 0.7;
     }
 
     @media (max-width: 768px) {
@@ -512,110 +610,118 @@ export class CreateGroupDialogComponent {
         padding: 16px;
       }
 
-      .header {
+      .page-header {
         flex-direction: column;
         gap: 16px;
         text-align: center;
       }
 
-      .controls {
+      .search-section {
         flex-direction: column;
         align-items: stretch;
       }
 
-      table {
-        display: block;
-        overflow-x: auto;
+      .search-field {
+        min-width: auto;
       }
 
       .stats-grid {
         grid-template-columns: 1fr;
       }
+
+      .action-buttons {
+        flex-direction: column;
+      }
     }
   `]
 })
 export class ManageGroupsComponent implements OnInit {
-  displayedColumns: string[] = ['name', 'description', 'category', 'status', 'members', 'createdBy', 'actions'];
   groups: Group[] = [];
   filteredGroups: Group[] = [];
-  searchTerm: string = '';
-  statusFilter: string = '';
-  categoryFilter: string = '';
+  searchTerm = '';
+  statusFilter = '';
+  categoryFilter = '';
+  displayedColumns = ['name', 'category', 'status', 'members', 'channels', 'createdBy', 'created', 'actions'];
   currentUser: User | null = null;
 
   constructor(
     private authService: AuthService,
     private router: Router,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private snackBar: MatSnackBar
   ) { }
 
-  ngOnInit() {
+  ngOnInit(): void {
     this.currentUser = this.authService.getCurrentUser();
     this.loadGroups();
     this.filterGroups();
   }
 
-  loadGroups() {
-    // Load mock groups from localStorage or create default ones
+  loadGroups(): void {
     const storedGroups = localStorage.getItem('groups');
     if (storedGroups) {
       this.groups = JSON.parse(storedGroups);
     } else {
-      this.groups = [
-        {
-          id: '1',
-          name: 'Tech Enthusiasts',
-          description: 'A group for technology lovers and developers',
-          category: 'technology',
-          status: GroupStatus.ACTIVE,
-          createdBy: '1',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          admins: [],
-          members: [],
-          channels: [],
-          isActive: true,
-          memberCount: 15,
-          maxMembers: 100
-        },
-        {
-          id: '2',
-          name: 'Business Network',
-          description: 'Professional networking and business discussions',
-          category: 'business',
-          status: GroupStatus.ACTIVE,
-          createdBy: '2',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          admins: [],
-          members: [],
-          channels: [],
-          isActive: true,
-          memberCount: 8,
-          maxMembers: 50
-        },
-        {
-          id: '3',
-          name: 'Learning Hub',
-          description: 'Educational content and study groups',
-          category: 'education',
-          status: GroupStatus.PENDING,
-          createdBy: '3',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          admins: [],
-          members: [],
-          channels: [],
-          isActive: true,
-          memberCount: 5,
-          maxMembers: 30
-        }
-      ];
-      localStorage.setItem('groups', JSON.stringify(this.groups));
+      // Initialize with default groups if none exist
+      this.initializeDefaultGroups();
     }
   }
 
-  filterGroups() {
+  initializeDefaultGroups(): void {
+    this.groups = [
+      {
+        id: '1',
+        name: 'Development Team',
+        description: 'Main development team for the chat system project',
+        category: 'technology',
+        status: GroupStatus.ACTIVE,
+        createdBy: '1', // super admin
+        createdAt: new Date('2025-01-01'),
+        updatedAt: new Date(),
+        admins: ['1', '2'], // super + group admin
+        members: ['1', '2', '3'], // super + group admin + user
+        channels: ['general', 'frontend', 'backend'],
+        isActive: true,
+        memberCount: 3,
+        maxMembers: 50
+      },
+      {
+        id: '2',
+        name: 'Design Team',
+        description: 'Creative discussions and design feedback',
+        category: 'design',
+        status: GroupStatus.ACTIVE,
+        createdBy: '2', // group admin
+        createdAt: new Date('2025-02-01'),
+        updatedAt: new Date(),
+        admins: ['2'], // group admin only
+        members: ['2', '3'], // group admin + user
+        channels: ['general', 'ui-ux', 'inspiration'],
+        isActive: true,
+        memberCount: 2,
+        maxMembers: 30
+      },
+      {
+        id: '3',
+        name: 'Marketing Team',
+        description: 'Marketing strategies and campaigns',
+        category: 'business',
+        status: GroupStatus.PENDING,
+        createdBy: '2', // group admin
+        createdAt: new Date('2025-01-15'),
+        updatedAt: new Date(),
+        admins: ['2'], // group admin only
+        members: ['2'], // group admin only
+        channels: ['general', 'campaigns', 'analytics'],
+        isActive: true,
+        memberCount: 1,
+        maxMembers: 25
+      }
+    ];
+    localStorage.setItem('groups', JSON.stringify(this.groups));
+  }
+
+  filterGroups(): void {
     this.filteredGroups = this.groups.filter(group => {
       const matchesSearch = group.name.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
         group.description.toLowerCase().includes(this.searchTerm.toLowerCase());
@@ -640,10 +746,17 @@ export class ManageGroupsComponent implements OnInit {
     return creator ? creator.username : 'Unknown';
   }
 
+  // Business Logic: Permission checks
+  canCreateGroup(): boolean {
+    if (!this.currentUser) return false;
+    return this.currentUser.roles.includes(UserRole.SUPER_ADMIN) ||
+      this.currentUser.roles.includes(UserRole.GROUP_ADMIN);
+  }
+
   canEditGroup(group: Group): boolean {
     if (!this.currentUser) return false;
-    if (this.currentUser.role === UserRole.SUPER_ADMIN) return true;
-    if (this.currentUser.role === UserRole.GROUP_ADMIN) {
+    if (this.currentUser.roles.includes(UserRole.SUPER_ADMIN)) return true;
+    if (this.currentUser.roles.includes(UserRole.GROUP_ADMIN)) {
       return group.createdBy === this.currentUser.id;
     }
     return false;
@@ -651,8 +764,8 @@ export class ManageGroupsComponent implements OnInit {
 
   canDeleteGroup(group: Group): boolean {
     if (!this.currentUser) return false;
-    if (this.currentUser.role === UserRole.SUPER_ADMIN) return true;
-    if (this.currentUser.role === UserRole.GROUP_ADMIN) {
+    if (this.currentUser.roles.includes(UserRole.SUPER_ADMIN)) return true;
+    if (this.currentUser.roles.includes(UserRole.GROUP_ADMIN)) {
       return group.createdBy === this.currentUser.id;
     }
     return false;
@@ -660,41 +773,77 @@ export class ManageGroupsComponent implements OnInit {
 
   canToggleGroupStatus(group: Group): boolean {
     if (!this.currentUser) return false;
-    if (this.currentUser.role === UserRole.SUPER_ADMIN) return true;
-    if (this.currentUser.role === UserRole.GROUP_ADMIN) {
+    if (this.currentUser.roles.includes(UserRole.SUPER_ADMIN)) return true;
+    if (this.currentUser.roles.includes(UserRole.GROUP_ADMIN)) {
       return group.createdBy === this.currentUser.id;
     }
     return false;
   }
 
-  viewGroup(group: Group) {
+  // CRUD Operations
+  viewGroup(group: Group): void {
     this.router.navigate(['/admin/groups', group.id]);
   }
 
-  editGroup(group: Group) {
+  editGroup(group: Group): void {
     this.router.navigate(['/admin/groups', group.id, 'edit']);
   }
 
-  deleteGroup(group: Group) {
-    if (confirm(`Are you sure you want to delete group "${group.name}"?`)) {
+  async deleteGroup(group: Group): Promise<void> {
+    if (!confirm(`Are you sure you want to delete group "${group.name}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      // Check if group has members
+      if (group.members.length > 1) { // More than just the creator
+        this.snackBar.open('Cannot delete group with active members. Remove all members first.', 'Close', {
+          duration: 5000,
+          panelClass: ['error-snackbar']
+        });
+        return;
+      }
+
+      // Remove group from all users' groups array
+      this.removeGroupFromUsers(group.id);
+
+      // Delete the group
       this.groups = this.groups.filter(g => g.id !== group.id);
       this.updateGroups();
       this.filterGroups();
+
+      this.snackBar.open(`Group "${group.name}" deleted successfully`, 'Close', {
+        duration: 3000,
+        panelClass: ['success-snackbar']
+      });
+    } catch (error) {
+      this.snackBar.open('Failed to delete group. Please try again.', 'Close', {
+        duration: 5000,
+        panelClass: ['error-snackbar']
+      });
     }
   }
 
-  toggleGroupStatus(group: Group) {
-    group.status = group.status === GroupStatus.ACTIVE ? GroupStatus.INACTIVE : GroupStatus.ACTIVE;
+  toggleGroupStatus(group: Group): void {
+    const newStatus = group.status === GroupStatus.ACTIVE ? GroupStatus.INACTIVE : GroupStatus.ACTIVE;
+    group.status = newStatus;
+    group.updatedAt = new Date();
+
     this.updateGroups();
     this.filterGroups();
+
+    this.snackBar.open(`Group "${group.name}" status changed to ${this.getStatusDisplayName(newStatus)}`, 'Close', {
+      duration: 3000,
+      panelClass: ['success-snackbar']
+    });
   }
 
-  openCreateGroupDialog() {
+  openCreateGroupDialog(): void {
     const dialogRef = this.dialog.open(CreateGroupDialogComponent, {
       width: '500px',
       data: {
         onCreate: (groupData: Partial<Group>) => {
-          const group: Group = {
+          const newGroup: Group = {
             id: Date.now().toString(),
             name: groupData.name!,
             description: groupData.description || '',
@@ -703,23 +852,50 @@ export class ManageGroupsComponent implements OnInit {
             createdBy: this.currentUser!.id,
             createdAt: new Date(),
             updatedAt: new Date(),
-            admins: [],
-            members: [],
-            channels: [],
+            admins: [this.currentUser!.id], // Creator becomes admin
+            members: [this.currentUser!.id], // Creator becomes first member
+            channels: ['general'], // Default general channel
             isActive: true,
             memberCount: 1,
             maxMembers: groupData.maxMembers || 100
           };
-          this.groups.push(group);
+
+          this.groups.push(newGroup);
           this.updateGroups();
           this.filterGroups();
+
+          this.snackBar.open(`Group "${newGroup.name}" created successfully`, 'Close', {
+            duration: 3000,
+            panelClass: ['success-snackbar']
+          });
         }
       }
     });
   }
 
-  updateGroups() {
+  // Helper methods
+  removeGroupFromUsers(groupId: string): void {
+    const users = JSON.parse(localStorage.getItem('users') || '[]');
+    users.forEach((user: User) => {
+      user.groups = user.groups.filter(g => g !== groupId);
+    });
+    localStorage.setItem('users', JSON.stringify(users));
+  }
+
+  updateGroups(): void {
     localStorage.setItem('groups', JSON.stringify(this.groups));
+  }
+
+  clearFilters(): void {
+    this.searchTerm = '';
+    this.statusFilter = '';
+    this.categoryFilter = '';
+    this.filterGroups();
+  }
+
+  // Statistics methods
+  getTotalGroupsCount(): number {
+    return this.groups.length;
   }
 
   getActiveGroupsCount(): number {
@@ -731,6 +907,7 @@ export class ManageGroupsComponent implements OnInit {
   }
 
   getPendingRequestsCount(): number {
-    return Math.floor(Math.random() * 10);
+    // Mock implementation - in real app, this would count actual pending join requests
+    return this.groups.filter(group => group.status === GroupStatus.PENDING).length;
   }
 }

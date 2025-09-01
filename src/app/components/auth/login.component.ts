@@ -326,7 +326,7 @@ export class LoginComponent implements OnInit {
 
   ngOnInit(): void {
     if (this.authService.isAuthenticated()) {
-      this.router.navigate(['/dashboard']);
+      this.router.navigate(['/admin']);
       return;
     }
 
@@ -352,7 +352,7 @@ export class LoginComponent implements OnInit {
       );
 
       if (success) {
-        this.router.navigate(['/dashboard']);
+        this.router.navigate(['/admin']);
       } else {
         this.errorMessage = 'Invalid username or password. Please try again.';
       }

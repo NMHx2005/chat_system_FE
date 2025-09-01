@@ -10,6 +10,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { AuthService } from '../../services/auth.service';
 import { Group, GroupStatus } from '../../models';
 import { ClientLayoutComponent } from '../layouts/client-layout.component';
@@ -28,6 +29,7 @@ import { ClientLayoutComponent } from '../layouts/client-layout.component';
     MatInputModule,
     MatSelectModule,
     MatTooltipModule,
+    MatSnackBarModule,
     ClientLayoutComponent
   ],
   template: `
@@ -440,7 +442,8 @@ export class GroupInterestComponent implements OnInit {
 
   constructor(
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private snackBar: MatSnackBar
   ) { }
 
   ngOnInit(): void {
@@ -539,7 +542,18 @@ export class GroupInterestComponent implements OnInit {
   }
 
   loadPendingRequests(): void {
-    this.pendingRequests = ['3'];
+    const currentUser = this.authService.getCurrentUser();
+    if (currentUser) {
+      const storedRequests = localStorage.getItem(`pendingRequests_${currentUser.id}`);
+      this.pendingRequests = storedRequests ? JSON.parse(storedRequests) : [];
+    }
+  }
+
+  savePendingRequests(): void {
+    const currentUser = this.authService.getCurrentUser();
+    if (currentUser) {
+      localStorage.setItem(`pendingRequests_${currentUser.id}`, JSON.stringify(this.pendingRequests));
+    }
   }
 
   filterGroups(): void {
@@ -611,26 +625,125 @@ export class GroupInterestComponent implements OnInit {
 
   async registerInterest(groupId: string): Promise<void> {
     try {
+      const currentUser = this.authService.getCurrentUser();
+      if (!currentUser) {
+        this.snackBar.open('Please log in to register interest', 'Close', {
+          duration: 3000,
+          panelClass: ['error-snackbar']
+        });
+        return;
+      }
+
+      // Check if already a member
+      const group = this.allGroups.find(g => g.id === groupId);
+      if (group && this.isMember(group)) {
+        this.snackBar.open('You are already a member of this group', 'Close', {
+          duration: 3000,
+          panelClass: ['warning-snackbar']
+        });
+        return;
+      }
+
+      // Check if already has pending request
+      if (this.hasPendingRequest(group!)) {
+        this.snackBar.open('You already have a pending request for this group', 'Close', {
+          duration: 3000,
+          panelClass: ['warning-snackbar']
+        });
+        return;
+      }
+
       await new Promise(resolve => setTimeout(resolve, 1000));
       this.pendingRequests.push(groupId);
-      alert('Interest registered successfully! Group admin will review your request.');
+      this.savePendingRequests();
+
+      // Store interest request for group admin to review
+      this.storeInterestRequest(groupId, currentUser.id, 'register_interest');
+
+      this.snackBar.open('Interest registered successfully! Group admin will review your request.', 'Close', {
+        duration: 4000,
+        panelClass: ['success-snackbar']
+      });
     } catch (error) {
-      alert('Failed to register interest. Please try again.');
+      this.snackBar.open('Failed to register interest. Please try again.', 'Close', {
+        duration: 5000,
+        panelClass: ['error-snackbar']
+      });
     }
   }
 
   async requestInvite(groupId: string): Promise<void> {
     try {
+      const currentUser = this.authService.getCurrentUser();
+      if (!currentUser) {
+        this.snackBar.open('Please log in to request invite', 'Close', {
+          duration: 3000,
+          panelClass: ['error-snackbar']
+        });
+        return;
+      }
+
+      // Check if already a member
+      const group = this.allGroups.find(g => g.id === groupId);
+      if (group && this.isMember(group)) {
+        this.snackBar.open('You are already a member of this group', 'Close', {
+          duration: 3000,
+          panelClass: ['warning-snackbar']
+        });
+        return;
+      }
+
+      // Check if already has pending request
+      if (this.hasPendingRequest(group!)) {
+        this.snackBar.open('You already have a pending request for this group', 'Close', {
+          duration: 3000,
+          panelClass: ['warning-snackbar']
+        });
+        return;
+      }
+
       await new Promise(resolve => setTimeout(resolve, 1000));
       this.pendingRequests.push(groupId);
-      alert('Invite request sent! Group admin will review your request.');
+      this.savePendingRequests();
+
+      // Store invite request for group admin to review
+      this.storeInterestRequest(groupId, currentUser.id, 'request_invite');
+
+      this.snackBar.open('Invite request sent! Group admin will review your request.', 'Close', {
+        duration: 4000,
+        panelClass: ['success-snackbar']
+      });
     } catch (error) {
-      alert('Failed to send invite request. Please try again.');
+      this.snackBar.open('Failed to send invite request. Please try again.', 'Close', {
+        duration: 5000,
+        panelClass: ['error-snackbar']
+      });
     }
   }
 
+  storeInterestRequest(groupId: string, userId: string, requestType: 'register_interest' | 'request_invite'): void {
+    const requests = JSON.parse(localStorage.getItem('groupInterestRequests') || '[]');
+    const currentUser = this.authService.getCurrentUser();
+    const group = this.allGroups.find(g => g.id === groupId);
+
+    requests.push({
+      id: Date.now().toString(),
+      groupId: groupId,
+      groupName: group?.name || 'Unknown Group',
+      userId: userId,
+      username: currentUser?.username || 'Unknown',
+      requestType: requestType,
+      requestedAt: new Date(),
+      status: 'pending',
+      reviewedBy: null,
+      reviewedAt: null
+    });
+
+    localStorage.setItem('groupInterestRequests', JSON.stringify(requests));
+  }
+
   viewGroup(groupId: string): void {
-    this.router.navigate(['/dashboard'], { queryParams: { group: groupId } });
+    this.router.navigate(['/groups', groupId]);
   }
 
   formatDate(date: Date): string {

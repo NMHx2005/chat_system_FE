@@ -9,10 +9,12 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { FormsModule } from '@angular/forms';
 import { ClientLayoutComponent } from '../layouts/client-layout.component';
 import { Channel, ChannelType } from '../../models/channel.model';
 import { Group } from '../../models/group.model';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-channels',
@@ -28,6 +30,7 @@ import { Group } from '../../models/group.model';
     MatInputModule,
     MatFormFieldModule,
     MatTooltipModule,
+    MatSnackBarModule,
     FormsModule,
     ClientLayoutComponent
   ],
@@ -41,6 +44,12 @@ import { Group } from '../../models/group.model';
         <button mat-stroked-button routerLink="/groups" class="back-button" matTooltip="Back to Groups">
           <mat-icon>arrow_back</mat-icon>
           Back to Groups
+        </button>
+        
+        <!-- Debug button (remove in production) -->
+        <button mat-stroked-button color="warn" (click)="resetData()" matTooltip="Reset data for testing">
+          <mat-icon>refresh</mat-icon>
+          Reset Data
         </button>
       </div>
 
@@ -101,11 +110,13 @@ import { Group } from '../../models/group.model';
           </mat-card-content>
           
           <mat-card-actions>
-            <button mat-raised-button color="primary" 
-                    [routerLink]="['/group', channel.groupId, 'channel', channel.id]"
+            <button mat-raised-button 
+                    [color]="isChannelMember(channel) ? 'accent' : 'primary'"
+                    [disabled]="!canJoinChannel(channel)"
+                    (click)="joinChannel(channel)"
                     matTooltip="Join this channel">
-              <mat-icon>chat</mat-icon>
-              Join Channel
+              <mat-icon>{{ isChannelMember(channel) ? 'check_circle' : 'chat' }}</mat-icon>
+              {{ isChannelMember(channel) ? 'Joined' : 'Join Channel' }}
             </button>
             
             <button mat-button color="accent" 
@@ -292,9 +303,20 @@ export class ChannelsComponent implements OnInit {
   selectedType: string = '';
   channels: Channel[] = [];
   groups: Group[] = [];
+  currentUser: any = null;
+
+  constructor(
+    private authService: AuthService,
+    private snackBar: MatSnackBar
+  ) { }
 
   ngOnInit() {
+    this.currentUser = this.authService.getCurrentUser();
+    console.log('🚀 ChannelsComponent initialized');
+    console.log('👤 Current user from auth service:', this.currentUser);
     this.loadMockData();
+    console.log('📊 Loaded groups:', this.groups);
+    console.log('📊 Loaded channels:', this.channels);
   }
 
   get filteredChannels(): Channel[] {
@@ -326,7 +348,142 @@ export class ChannelsComponent implements OnInit {
     this.channels = [...this.channels];
   }
 
+  isChannelMember(channel: Channel): boolean {
+    if (!this.currentUser) return false;
+    return channel.members.includes(this.currentUser.id);
+  }
+
+  canJoinChannel(channel: Channel): boolean {
+    console.log('🔍 Checking if user can join channel:', channel.name);
+    console.log('👤 Current user:', this.currentUser);
+
+    if (!this.currentUser) {
+      console.log('❌ No current user');
+      return false;
+    }
+
+    // Check if user is already a member
+    if (this.isChannelMember(channel)) {
+      console.log('❌ User already a member of channel');
+      return false;
+    }
+
+    // Check if user is banned from this channel
+    if (channel.bannedUsers.includes(this.currentUser.id)) {
+      console.log('❌ User is banned from channel');
+      return false;
+    }
+
+    // Check if user is a member of the group
+    const group = this.groups.find(g => g.id === channel.groupId);
+    console.log('🏢 Found group:', group);
+    console.log('👥 Group members:', group?.members);
+    console.log('🆔 Current user ID:', this.currentUser.id);
+
+    if (!group || !group.members.includes(this.currentUser.id)) {
+      console.log('❌ User is not a member of the group');
+      return false;
+    }
+
+    // Check if channel has reached max members
+    if (channel.maxMembers && (channel.memberCount || 0) >= channel.maxMembers) {
+      console.log('❌ Channel has reached max members');
+      return false;
+    }
+
+    console.log('✅ User can join channel');
+    return true;
+  }
+
+  async joinChannel(channel: Channel): Promise<void> {
+    if (!this.currentUser) {
+      this.snackBar.open('Please log in to join channels', 'Close', {
+        duration: 3000,
+        panelClass: ['error-snackbar']
+      });
+      return;
+    }
+
+    if (!this.canJoinChannel(channel)) {
+      this.snackBar.open('Cannot join this channel', 'Close', {
+        duration: 3000,
+        panelClass: ['error-snackbar']
+      });
+      return;
+    }
+
+    try {
+      // Add user to channel members
+      const channelIndex = this.channels.findIndex(c => c.id === channel.id);
+      if (channelIndex > -1) {
+        this.channels[channelIndex].members.push(this.currentUser.id);
+        this.channels[channelIndex].memberCount = this.channels[channelIndex].members.length;
+        this.channels[channelIndex].updatedAt = new Date();
+      }
+
+      // Update localStorage
+      this.updateChannelsInStorage();
+
+      this.snackBar.open(`Successfully joined "${channel.name}" channel!`, 'Close', {
+        duration: 3000,
+        panelClass: ['success-snackbar']
+      });
+
+      // Navigate to the channel
+      // Note: You might want to add Router injection and navigate here
+      // this.router.navigate(['/group', channel.groupId, 'channel', channel.id]);
+
+    } catch (error) {
+      this.snackBar.open('Failed to join channel. Please try again.', 'Close', {
+        duration: 5000,
+        panelClass: ['error-snackbar']
+      });
+    }
+  }
+
+  private updateChannelsInStorage(): void {
+    localStorage.setItem('channels', JSON.stringify(this.channels));
+  }
+
+  // Debug method to reset data
+  resetData(): void {
+    localStorage.removeItem('groups');
+    localStorage.removeItem('channels');
+    this.loadMockData();
+    this.snackBar.open('Data reset successfully!', 'Close', {
+      duration: 3000,
+      panelClass: ['success-snackbar']
+    });
+  }
+
   private loadMockData() {
+    // Load groups from localStorage
+    const storedGroups = localStorage.getItem('groups');
+    if (storedGroups) {
+      this.groups = JSON.parse(storedGroups);
+      console.log('📁 Loaded groups from localStorage:', this.groups);
+    } else {
+      // Initialize with default groups if none exist
+      console.log('📁 No groups in localStorage, initializing defaults');
+      this.initializeDefaultGroups();
+    }
+
+    // Load channels from localStorage
+    const storedChannels = localStorage.getItem('channels');
+    if (storedChannels) {
+      this.channels = JSON.parse(storedChannels);
+      console.log('📁 Loaded channels from localStorage:', this.channels);
+    } else {
+      // Initialize with default channels if none exist
+      console.log('📁 No channels in localStorage, initializing defaults');
+      this.initializeDefaultChannels();
+    }
+  }
+
+  private initializeDefaultGroups(): void {
+    // Get current user ID to ensure they're included in groups
+    const currentUserId = this.currentUser?.id || '1';
+
     this.groups = [
       {
         id: '1',
@@ -334,9 +491,9 @@ export class ChannelsComponent implements OnInit {
         description: 'Core technology development team',
         category: 'Technology',
         status: 'active' as any,
-        createdBy: 'user1',
-        admins: ['user1'],
-        members: ['user1', 'user2', 'user3'],
+        createdBy: currentUserId,
+        admins: [currentUserId],
+        members: [currentUserId, 'user2', 'user3'],
         channels: ['1', '2'],
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -361,6 +518,13 @@ export class ChannelsComponent implements OnInit {
         maxMembers: 30
       }
     ];
+    console.log('🏗️ Initialized default groups with current user:', currentUserId);
+    localStorage.setItem('groups', JSON.stringify(this.groups));
+  }
+
+  private initializeDefaultChannels(): void {
+    // Get current user ID
+    const currentUserId = this.currentUser?.id || '1';
 
     this.channels = [
       {
@@ -369,13 +533,13 @@ export class ChannelsComponent implements OnInit {
         description: 'General discussion for the technology team',
         groupId: '1',
         type: ChannelType.TEXT,
-        createdBy: 'user1',
-        members: ['user1', 'user2', 'user3'],
+        createdBy: currentUserId,
+        members: ['user2', 'user3'], // Don't include current user initially
         bannedUsers: [],
         createdAt: new Date(),
         updatedAt: new Date(),
         isActive: true,
-        memberCount: 3,
+        memberCount: 2,
         maxMembers: 50
       },
       {
@@ -384,13 +548,13 @@ export class ChannelsComponent implements OnInit {
         description: 'Code review discussions and feedback',
         groupId: '1',
         type: ChannelType.TEXT,
-        createdBy: 'user1',
-        members: ['user1', 'user2'],
+        createdBy: currentUserId,
+        members: ['user2'], // Don't include current user initially
         bannedUsers: [],
         createdAt: new Date(),
         updatedAt: new Date(),
         isActive: true,
-        memberCount: 2,
+        memberCount: 1,
         maxMembers: 20
       },
       {
@@ -424,5 +588,7 @@ export class ChannelsComponent implements OnInit {
         maxMembers: 15
       }
     ];
+    console.log('🏗️ Initialized default channels');
+    localStorage.setItem('channels', JSON.stringify(this.channels));
   }
 }

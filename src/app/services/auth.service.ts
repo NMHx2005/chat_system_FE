@@ -171,4 +171,61 @@ export class AuthService {
   isUser(): boolean {
     return this.hasRole(UserRole.USER);
   }
+
+  canAccessAdminFeatures(): boolean {
+    return this.isSuperAdmin() || this.isGroupAdmin();
+  }
+
+  canManageUsers(): boolean {
+    return this.isSuperAdmin() || this.isGroupAdmin();
+  }
+
+  canManageGroups(): boolean {
+    return this.isSuperAdmin() || this.isGroupAdmin();
+  }
+
+  canManageChannels(): boolean {
+    return this.isSuperAdmin() || this.isGroupAdmin();
+  }
+
+  canPromoteUsers(): boolean {
+    return this.isSuperAdmin();
+  }
+
+  canDeleteUsers(): boolean {
+    return this.isSuperAdmin();
+  }
+
+  canBanUsersFromChannels(): boolean {
+    return this.isSuperAdmin() || this.isGroupAdmin();
+  }
+
+  isUserActive(): boolean {
+    const user = this.getCurrentUser();
+    return user ? user.isActive : false;
+  }
+
+  hasPermission(permission: string): boolean {
+    const user = this.getCurrentUser();
+    if (!user || !user.isActive) return false;
+
+    switch (permission) {
+      case 'manage_users':
+        return this.canManageUsers();
+      case 'manage_groups':
+        return this.canManageGroups();
+      case 'manage_channels':
+        return this.canManageChannels();
+      case 'promote_users':
+        return this.canPromoteUsers();
+      case 'delete_users':
+        return this.canDeleteUsers();
+      case 'ban_users':
+        return this.canBanUsersFromChannels();
+      case 'admin_access':
+        return this.canAccessAdminFeatures();
+      default:
+        return false;
+    }
+  }
 }

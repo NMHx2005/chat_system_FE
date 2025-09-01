@@ -12,6 +12,16 @@ export interface Channel {
   isActive: boolean;
   memberCount?: number; // Optional member count for display
   maxMembers?: number; // Optional max members limit
+  avatarUrl?: string;
+  lastMessage?: {
+    id: string;
+    channelId: string;
+    userId: string;
+    username: string;
+    text: string;
+    createdAt: Date;
+    avatarUrl: string;
+  };
 }
 
 export enum ChannelType {
@@ -26,6 +36,8 @@ export interface ChannelCreation {
   groupId: string;
   type: ChannelType;
   maxMembers?: number;
+  avatarUrl?: string;
+  lastMessage?: string;
 }
 
 export interface ChannelUpdate {
@@ -33,4 +45,6 @@ export interface ChannelUpdate {
   description?: string;
   type?: ChannelType;
   maxMembers?: number;
+  avatarUrl?: string;
+  lastMessage?: string;
 }

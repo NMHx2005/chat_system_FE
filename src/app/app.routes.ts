@@ -21,11 +21,7 @@ export const routes: Routes = [
     path: 'register',
     loadComponent: () => import('./components/auth/register.component').then(m => m.RegisterComponent)
   },
-  {
-    path: 'dashboard',
-    loadComponent: () => import('./components/dashboard/dashboard.component').then(m => m.DashboardComponent),
-    canActivate: [AuthGuard]
-  },
+
   {
     path: 'profile',
     loadComponent: () => import('./components/profile/profile.component').then(m => m.ProfileComponent),
@@ -85,7 +81,13 @@ export const routes: Routes = [
       },
       {
         path: 'groups/:groupId',
-        loadComponent: () => import('./components/admin/group-detail.component').then(m => m.AdminGroupDetailComponent),
+        loadComponent: () => import('./components/admin/admin-group-detail.component').then(m => m.AdminGroupDetailComponent),
+        canActivate: [RoleGuard],
+        data: { roles: [UserRole.GROUP_ADMIN, UserRole.SUPER_ADMIN] }
+      },
+      {
+        path: 'groups/:groupId/edit',
+        loadComponent: () => import('./components/admin/edit-group.component').then(m => m.EditGroupComponent),
         canActivate: [RoleGuard],
         data: { roles: [UserRole.GROUP_ADMIN, UserRole.SUPER_ADMIN] }
       },
@@ -96,8 +98,20 @@ export const routes: Routes = [
         data: { roles: [UserRole.GROUP_ADMIN, UserRole.SUPER_ADMIN] }
       },
       {
+        path: 'channels/:channelId/edit',
+        loadComponent: () => import('./components/admin/edit-channel.component').then(m => m.EditChannelComponent),
+        canActivate: [RoleGuard],
+        data: { roles: [UserRole.GROUP_ADMIN, UserRole.SUPER_ADMIN] }
+      },
+      {
         path: 'groups/:groupId/channels',
         loadComponent: () => import('./components/admin/manage-channels.component').then(m => m.ManageChannelsComponent),
+        canActivate: [RoleGuard],
+        data: { roles: [UserRole.GROUP_ADMIN, UserRole.SUPER_ADMIN] }
+      },
+      {
+        path: 'group-requests',
+        loadComponent: () => import('./components/admin/manage-group-requests.component').then(m => m.ManageGroupRequestsComponent),
         canActivate: [RoleGuard],
         data: { roles: [UserRole.GROUP_ADMIN, UserRole.SUPER_ADMIN] }
       }

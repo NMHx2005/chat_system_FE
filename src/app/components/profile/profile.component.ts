@@ -251,7 +251,7 @@ import { ClientLayoutComponent } from '../layouts/client-layout.component';
                   <button
                     mat-raised-button
                     color="primary"
-                    routerLink="/dashboard"
+                    routerLink="/admin"
                     matTooltip="Browse available groups">
                     <mat-icon>explore</mat-icon>
                     Browse Groups
@@ -682,7 +682,7 @@ export class ProfileComponent implements OnInit {
   }
 
   viewGroup(groupId: string): void {
-    this.router.navigate(['/dashboard'], { queryParams: { group: groupId } });
+    this.router.navigate(['/admin'], { queryParams: { group: groupId } });
   }
 
   confirmLeaveGroup(group: any): void {
@@ -713,10 +713,66 @@ export class ProfileComponent implements OnInit {
   }
 
   deleteAccount(): void {
-    // Mock delete account for Phase 1
-    this.closeDialog();
-    this.authService.logout();
-    this.router.navigate(['/login']);
+    try {
+      const currentUser = this.authService.getCurrentUser();
+      if (!currentUser) {
+        this.snackBar.open('No user found to delete', 'Close', {
+          duration: 3000,
+          panelClass: ['error-snackbar']
+        });
+        return;
+      }
+
+      // Remove user from all groups
+      this.removeUserFromAllGroups(currentUser.id);
+
+      // Remove user from all channels
+      this.removeUserFromAllChannels(currentUser.id);
+
+      // Remove user from users list
+      this.removeUserFromUsersList(currentUser.id);
+
+      // Clear user data
+      this.closeDialog();
+      this.authService.logout();
+
+      this.snackBar.open('Account deleted successfully', 'Close', {
+        duration: 3000,
+        panelClass: ['success-snackbar']
+      });
+
+      this.router.navigate(['/login']);
+    } catch (error) {
+      this.snackBar.open('Failed to delete account. Please try again.', 'Close', {
+        duration: 5000,
+        panelClass: ['error-snackbar']
+      });
+    }
+  }
+
+  removeUserFromAllGroups(userId: string): void {
+    const groups = JSON.parse(localStorage.getItem('groups') || '[]');
+    groups.forEach((group: any) => {
+      group.members = group.members.filter((id: string) => id !== userId);
+      group.admins = group.admins.filter((id: string) => id !== userId);
+    });
+    localStorage.setItem('groups', JSON.stringify(groups));
+  }
+
+  removeUserFromAllChannels(userId: string): void {
+    const channels = JSON.parse(localStorage.getItem('channels') || '[]');
+    channels.forEach((channel: any) => {
+      channel.members = channel.members.filter((id: string) => id !== userId);
+      channel.bannedUsers = channel.bannedUsers.filter((id: string) => id !== userId);
+      channel.memberCount = channel.members.length;
+    });
+    localStorage.setItem('channels', JSON.stringify(channels));
+  }
+
+  removeUserFromUsersList(userId: string): void {
+    const users = JSON.parse(localStorage.getItem('users') || '[]');
+    const updatedUsers = users.filter((user: any) => user.id !== userId);
+    localStorage.setItem('users', JSON.stringify(updatedUsers));
   }
 
   closeDialog(): void {

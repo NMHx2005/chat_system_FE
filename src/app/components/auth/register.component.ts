@@ -10,19 +10,19 @@ import { MatInputModule } from '@angular/material/input';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
-    selector: 'app-register',
-    standalone: true,
-    imports: [
-        CommonModule,
-        ReactiveFormsModule,
-        RouterLink,
-        MatCardModule,
-        MatButtonModule,
-        MatIconModule,
-        MatFormFieldModule,
-        MatInputModule
-    ],
-    template: `
+  selector: 'app-register',
+  standalone: true,
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    RouterLink,
+    MatCardModule,
+    MatButtonModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule
+  ],
+  template: `
     <div class="register-container">
       <mat-card class="register-card">
         <mat-card-header>
@@ -103,7 +103,7 @@ import { AuthService } from '../../services/auth.service';
       </mat-card>
     </div>
   `,
-    styles: [`
+  styles: [`
     .register-container {
       min-height: 100vh;
       display: flex;
@@ -230,69 +230,69 @@ import { AuthService } from '../../services/auth.service';
   `]
 })
 export class RegisterComponent implements OnInit {
-    registerForm: FormGroup;
-    isSubmitting = false;
-    errorMessage = '';
+  registerForm: FormGroup;
+  isSubmitting = false;
+  errorMessage = '';
 
-    constructor(
-        private authService: AuthService,
-        private router: Router,
-        private fb: FormBuilder
-    ) {
-        this.registerForm = this.fb.group({
-            username: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(20), Validators.pattern(/^[a-zA-Z0-9_]+$/)]],
-            email: ['', [Validators.required, Validators.email]],
-            password: ['', [Validators.required, Validators.minLength(6)]],
-            confirmPassword: ['', Validators.required]
-        }, { validators: this.passwordsMatchValidator });
+  constructor(
+    private authService: AuthService,
+    private router: Router,
+    private fb: FormBuilder
+  ) {
+    this.registerForm = this.fb.group({
+      username: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(20), Validators.pattern(/^[a-zA-Z0-9_]+$/)]],
+      email: ['', [Validators.required, Validators.email]],
+      password: ['', [Validators.required, Validators.minLength(6)]],
+      confirmPassword: ['', Validators.required]
+    }, { validators: this.passwordsMatchValidator });
+  }
+
+  ngOnInit(): void {
+    if (this.authService.isAuthenticated()) {
+      this.router.navigate(['/admin']);
+    }
+  }
+
+  passwordsMatchValidator(form: FormGroup): { [key: string]: boolean } | null {
+    const password = form.get('password')?.value;
+    const confirmPassword = form.get('confirmPassword')?.value;
+    return password === confirmPassword ? null : { passwordsMismatch: true };
+  }
+
+  async onSubmit(): Promise<void> {
+    if (this.registerForm.invalid) {
+      return;
     }
 
-    ngOnInit(): void {
-        if (this.authService.isAuthenticated()) {
-            this.router.navigate(['/dashboard']);
-        }
+    this.isSubmitting = true;
+    this.errorMessage = '';
+
+    try {
+      const isUsernameUnique = await this.authService.checkUsernameUnique(this.registerForm.value.username);
+
+      if (!isUsernameUnique) {
+        this.errorMessage = 'Username already exists. Please choose a different one.';
+        return;
+      }
+
+      const success = await this.authService.register({
+        username: this.registerForm.value.username,
+        email: this.registerForm.value.email,
+        password: this.registerForm.value.password
+      });
+
+      if (success) {
+        this.router.navigate(['/login'], {
+          queryParams: { message: 'Account created successfully! Please log in.' }
+        });
+      } else {
+        this.errorMessage = 'Failed to create account. Please try again.';
+      }
+    } catch (error) {
+      this.errorMessage = 'An error occurred. Please try again.';
+      console.error('Registration error:', error);
+    } finally {
+      this.isSubmitting = false;
     }
-
-    passwordsMatchValidator(form: FormGroup): { [key: string]: boolean } | null {
-        const password = form.get('password')?.value;
-        const confirmPassword = form.get('confirmPassword')?.value;
-        return password === confirmPassword ? null : { passwordsMismatch: true };
-    }
-
-    async onSubmit(): Promise<void> {
-        if (this.registerForm.invalid) {
-            return;
-        }
-
-        this.isSubmitting = true;
-        this.errorMessage = '';
-
-        try {
-            const isUsernameUnique = await this.authService.checkUsernameUnique(this.registerForm.value.username);
-
-            if (!isUsernameUnique) {
-                this.errorMessage = 'Username already exists. Please choose a different one.';
-                return;
-            }
-
-            const success = await this.authService.register({
-                username: this.registerForm.value.username,
-                email: this.registerForm.value.email,
-                password: this.registerForm.value.password
-            });
-
-            if (success) {
-                this.router.navigate(['/login'], {
-                    queryParams: { message: 'Account created successfully! Please log in.' }
-                });
-            } else {
-                this.errorMessage = 'Failed to create account. Please try again.';
-            }
-        } catch (error) {
-            this.errorMessage = 'An error occurred. Please try again.';
-            console.error('Registration error:', error);
-        } finally {
-            this.isSubmitting = false;
-        }
-    }
+  }
 }

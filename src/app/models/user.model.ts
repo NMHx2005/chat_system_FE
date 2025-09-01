@@ -8,6 +8,7 @@ export interface User {
   groups: string[]; // Array of group IDs
   createdAt: Date;
   updatedAt: Date;
+  avatarUrl?: string;
   isActive: boolean;
 }
 
